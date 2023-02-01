@@ -1,0 +1,4596 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv='Content-Type' content='text/html;charset=utf-8'/>
+  <meta name='viewport' content='width=1528,height=1080'/>
+  <title>統計</title>
+<script><![CDATA[
+var appname = "statlook";
+var appversion = "1.22.0105";
+var GUIDE_DATAPANEL= "◆資料／クリップボードのデータ貼り付け，ファイルの読み込み，データの直接入力ができます。"+
+	"<br/>(系列)ボタンを選択して表の中の系列名やデータ範囲を指定します。系列は[＋][ー]ボタンで増減できます。";
+var GUIDE_BARCHARTPANEL= "◆概要／可視化したデータを確認します。資料パネルでデータ範囲の追加や削除ができます。"+
+	"<br/>[統計量を求める]ボタンを押して処理を開始します。";
+var GUIDE_SUMMARYPANEL= "◆統計量／[求める]ボタンで概要パネルから値を求めます。[すべて求める]ボタンですべての値が求められます。<br/>"+
+	"[度数分布表を作る][四分位数の表を作る]ボタンで集計を行います。";
+var GUIDE_FREQUENCYPANEL= "◆度数分布／範囲・階級幅，階級数を変更できます。<br/>"+
+	"[ヒストグラムを作る]ボタンで図にできます。";
+var GUIDE_QUARTILEPANEL= "◆四分位数／[求める]ボタンで概要パネルから値を求めます。[すべて求める]ボタンですべての値が求められます。<br/>"+
+	"[箱ひげ図を作る]ボタンで図に表現します。";
+var GUIDE_HISTGRAMPANEL= "◆ヒストグラム／階級の設定の変更は 度数分布パネル で行います。<br/>"+
+	"複数の系列がある場合，系列名のボタンを押すことで表示する系列を選択できます。";
+var GUIDE_BOXPLOTPANEL= "◆箱ひげ図／ヒストグラムと比較するには 統計量パネル に戻って度数分布表を作るところから始めます。";
+]]></script>
+<style>
+html { }
+body { width:1528px; height:1080px; margin:0; }
+
+:root { font-size:24px; }
+input, textarea, button { font-size:inherit; }
+input[type="checkbox"] { transform:scale(1.5); transform-origin:center bottom; width:1em; }
+svg { font-size:80%; }
+
+h1 {
+    position: relative;
+    top: 0; left: 0.2em;
+    margin: 0;
+    font-family: sans-serif;
+    font-size:2em;
+}
+h1 span { color:#2200bb; /*vertical-align: bottom;*/ }
+/*h1::before { content:"◆"; color:#8888ff;font-size:1.5em; }*/
+
+h2 { font-family: sans-serif; font-size:1.2em; margin: 0; padding:0; }
+h2::before { content:"◆"; color:#8888ff;font-size:1.5em; line-height:1em;}
+#base {
+    height:100%;
+    background-color: #ffffee;
+    border:solid 1px gray;
+}
+#top {
+    margin: 0.5em 1% 0.3em 1%;
+    height: 3em;
+}
+#stage {
+    margin:0.3em 1%;
+    vertical-align: top;
+    height: calc(100% - 7.6em);
+    text-align: center;
+}
+#bottom {
+    margin: 0.3em 1% 0.5em 1%;
+    height: 3em;
+}
+
+#stepbar {
+    position: relative;
+    top: -2.4em;
+    left: 10em;
+    padding: 0.25em 10em 0.25em 0;
+    background-color: #eeeeff;
+    border: solid 1px #eeeedd;
+    border-radius:0.5em 0.5em;
+    width: 42em;
+    height: 1.6em;
+    text-align: center;
+    font-family: sans-serif;
+}
+.omitone label:nth-child(2):last-child {
+    display:none;
+}
+.rightbar {
+    display:inline-block;
+    position:absolute;
+    right:0.5em;
+}
+.toggle {
+    font-family: sans-serif;
+}
+.toggle > input, .toggle input[type="checkbox"] {
+    display:none;
+}
+#stepbar .toggle > label {
+    border: solid 1px #999999;
+    border-left: none;
+    background-color: #ffffff;
+    padding: 0.2em;
+}
+#stepbar .toggle > label:first-of-type {
+    border-left: solid 1px #999999;
+    border-top-left-radius: 1em;
+    border-bottom-left-radius: 1em;
+    padding-left: 0.6em;
+}
+#stepbar .toggle > label:last-of-type {
+    border-top-right-radius: 1em;
+    border-bottom-right-radius: 1em;
+    padding-right: 0.6em;
+}
+#stepbar .toggle > input:checked + label {
+    background-color: #80d0ff;
+}
+#stepbar .toggle > input:active + label {
+    background-color: #6090dd; /*#ddeeff;*/
+}
+#stepbar .toggle input + label {
+    border-radius: 0;
+}
+
+
+#serlist {
+    display:inline-block; margin:0; list-style-type:none;
+    counter-reset: ser;
+}
+#serlist label:after {
+    counter-increment: ser;
+    content: counter(ser);
+}
+/*#serlist.toggle input[type="checkbox"]:not(:checked) ~ input[type="text"] {
+    border: none;
+}*/
+#serlist input[type="button"], #addser {
+    font-family: sans-serif;
+}
+
+.toggle input + label {
+    padding:0 0.3em; border:solid 1px gray; border-radius:1em;
+}
+.toggle input:checked + label {
+    border: solid 2px black;
+    background-color: #cccccc;
+}
+:not(.doublepanel)>.panel .serswitch span {
+    display: block;
+    margin: 0.1em 0;
+}
+.serswitch span {
+    display:inline-block;
+    margin: 0 0.1em;
+}
+
+.panel {
+    text-align: left;
+    padding: 0.5%;
+    background-color: white;
+    border: solid 1px #eeeedd;
+    border-radius:10px 10px;
+    min-width: 48%; min-height: 300px;
+    max-width: 100%;
+    display: none; /*-> inline-block @ regstep(),handlestep()*/
+    vertical-align: top;
+    max-height: calc(100% - 1em);
+    overflow: auto;
+}
+.doublepanel .panel {
+    max-width: 48%;
+}
+#stage:not(.doublepanel) svg {
+    float:left;
+    /*width:calc(100% - 18em);*/
+    /*height:calc(100% - 18em);*/
+    width:1000px;
+    height:880px;
+}
+#stage:not(.doublepanel)  .panel.fig {
+    width: 90%
+}
+#stage:not(.doublepanel) .panel.fig h2 {
+    display:inline-block;
+    float:left;
+}
+
+.op {
+    display: none;
+}
+svg {
+    display: block;
+}
+
+.stable {
+    display:inline-block;
+}
+.vtable {
+    border-collapse: collapse;
+    font-family: sans-serif;
+}
+.vtable {
+    border: solid 2px black;
+}
+.vtable th:empty {
+	min-width: 1em;
+	height: 1em;
+}
+.vtable th:first-child:not(:empty) {
+	min-width: 3em;
+}
+.vtable td, .vtable th {
+    border-left: solid 1px black;
+    border-right: solid 1px black;
+    min-width: 1.5em;
+}
+.vtable td {
+    text-align: right;
+}
+.vtable th {
+    background-color: #ccccbb;
+    text-align: center;
+}
+.vtable tr:first-of-type th {
+    border-bottom: solid 1px black;
+}
+.brow th, .brow td, tfoot {
+    border-top: solid 1px black;
+}
+thead {
+    border-bottom: solid 1px black;
+}
+.vtable [data-disabled] {
+    color: gray;
+    background-color: #cccccc;
+}
+
+#fdiv {
+    display:block;
+    overflow-y: scroll;
+    max-height:30em;
+}
+#ftable td:first-child {
+    text-align: center;
+}
+#ftable tr>*:first-child {
+    white-space:nowrap;
+}
+#ftable tr>*:nth-child(4n+2), #ftable th[colspan="4"] {
+    border-left: solid 3px black;
+}
+
+#stable th:first-child, #qtable th:first-child {
+    min-width: 3em;
+}
+
+.axis line, .label line {
+    stroke: black;
+}
+.label {
+    font-family: sans-serif;
+}
+
+#barchart .series rect {
+    stroke:black;
+}
+#barchart .ytitle {
+	font-family: sans-serif;
+	font-size: 0.9em;
+}
+#barchart .ylabel {
+	text-anchor: end;
+	font-size: 0.9em;
+}
+/*#barchart.sorted .ytitle, #barchart.sorted .ylabel {
+	fill: green;
+}*/
+#divpreview {
+    border: solid 1px gray;
+    border-radius: 1em;
+    padding: 0.1em 0.5em;
+}
+
+.hbar line {
+    stroke: black;
+}
+.hbar .frac {
+    stroke: none;/*purple;*/
+}
+.bar_overlapvalue {
+    font-family: sans-serif;
+    font-size: 2em;
+    opacity: 0.5;
+}
+.bar_overlapvalue.word {
+	font-size: 1.4em;
+}
+
+.bar_freqn {
+    font-family: sans-serif;
+    font-size: 1.2em;
+    opacity: 0.5;
+}
+
+.bar_err {
+    font-family: sans-serif;
+    fill: rgba(255,0,0,0.5);
+}
+.bar_vline {
+    stroke: black;
+}
+.bar_divline {
+    stroke: orange;
+}
+.bar_divarrow {
+    stroke: orange;
+    marker-start: url(#bar_divare);
+    marker-end: url(#bar_divarh);
+}
+#bar_divarh, #bar_divare {
+    stroke: orange;
+    fill: none;
+}
+
+.box * {
+    stroke: black;
+}
+.box text {
+    stroke: none;
+    font-family: sans-serif;
+    font-size: 80%;
+}
+
+.csetting {
+    margin: 5px;
+    border:solid 1px gray;
+    border-radius:5px;
+	font-size: 20px;
+
+    /*display:inline-block;
+    float:right*/
+}
+.csetting input {
+    text-align: right;
+    font-size: 130%;
+}
+.spin {
+    display: inline-block;
+    font-size:48%;
+    vertical-align: bottom;
+}
+.spin button {
+    display: block;
+}
+
+.navigation {
+    margin-left: 0.5em;
+    background-color: rgb(255,200,100);
+    display:inline-block;
+    border: solid 1px gray;
+    border-radius: 0.5em;
+    padding: 0.3em 1em;
+    font-family: sans-serif;
+    font-size: 0.8em;
+}
+#qselect {
+	display: none/*!important*/;
+    float:right;
+    font-family:sans-serif;
+    font-size:60%;
+    border:solid 1px gray;
+    border-radius:0.5em;
+    padding:0 0.5em
+}
+.outlier, .outl, .outr {
+    fill: red;
+}
+.fdp {
+    stroke-width: 3;
+}
+
+/*button[id^="reqall"], */
+#makeftable, #makeqtable, #makebox {
+	display: none;
+}
+
+#datafileload {
+	max-width: 16em;
+}
+
+</style>
+
+<script><![CDATA[//x.js 20.1223
+
+window.addEventListener
+("load", function (ev) {
+ Xframework.windowloaded = true;
+ window.xf = new Xframework();
+ });
+
+function Xframework() {
+	if(Xframework.singleton) return Xframework.singleton;
+	Xframework.singleton = this;
+	
+	var sto;
+	this.load = function(key) {
+		return key? sto[key] : sto;
+	}
+	this.save = function(key, value) {
+		if(key!=undefined) {
+			sto[key] = value;
+		} else {
+			sto = value!=null ? value : {};
+		}
+		this.xstorageupdate();
+	}
+	this.remove = function(key) {
+		if(sto && key) {
+			delete sto[key];
+		} else {
+			sto = {};
+		}
+		this.xstorageupdate();
+	}
+	this.export = function() {
+		return deepcopy(sto);
+	}
+	this.import = function(data) {
+		this.save(null, data);
+		dispatch("xupdate");
+	}
+
+	this.pageid = location.pathname.split(/[\\\/\.]/).slice(-2,-1)[0];
+
+if(true) {
+	this.xstoragecache = function() {
+		sto = sessionStorage.getItem(this.pageid);
+		sto = sto? JSON.parse(sto) : {};
+	}
+	this.xstorageupdate = function() {
+		if(Object.keys(sto).length==0) sessionStorage.removeItem(this.pageid);
+		else sessionStorage.setItem(this.pageid, JSON.stringify(sto));
+	}
+
+	this.xstoragecache();
+}
+
+	setTimeout(dispatch, 0, "xinit");
+
+function dispatch (type, detail) {
+	var ev = document.createEvent("CustomEvent");
+	ev.initCustomEvent(type, false, false, detail);
+	window.dispatchEvent(ev);
+}
+function deepcopy(src) {
+	return src===undefined? src : JSON.parse(JSON.stringify(src));
+}
+}
+]]></script>
+<script><![CDATA[//stat.js 22.0104
+//stat.js 2012 (c) 2017, 2022 aokih@icu.ac.jp
+
+
+//function isNumber(str){return !str.match(/[^-+\d.,]/)}
+function isNumber(str){return !!str.match(/^\s*[-+]?(?:\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?\s*$/)}
+function numericcmp(a,b){return a-b}
+
+function minmax(data) {
+    var i;
+    var min = max = data[0];
+    for(i=1; i<data.length; i++) {
+        var v = data[i];
+        if(v < min) min = v;
+        else if(v > max) max = v;
+    }
+    return {min:min, max:max};
+}
+function getsum(data) {
+    return data.length? data.reduce(function(p,v){return p+v}) : 0;
+}
+function getaverage(data) {
+    return getsum(data)/data.length;
+}
+function getmedian(data) {
+    var d = data.concat().sort(numericcmp);
+    var h = (d.length-1)/2;
+    return (d[Math.floor(h)] + d[Math.ceil(h)])/2;
+}
+
+// 度数分布
+function countup(data, init, tick, length, d) {
+    var i, r;
+	var carr = new Array(length);
+	carr.fill(0);
+    var count = 0;
+    
+    if(d!=undefined) {
+        var k = Math.pow(10,d);
+        data = data.map(function(v){return Math.round(v*k)});
+        init = Math.round(init*k);
+        tick = Math.round(tick*k);
+    }
+    
+    for(i=0; i<data.length; i++) {
+        var r = Math.floor((data[i]-init)/tick);
+        if(0<=r && r<length) {
+            carr[r]++;
+            count++;
+        }
+    }
+    return {arr:carr, count:count};
+}
+
+function getRange(min, max, tick, d) {
+    var k = d==undefined? 1 : Math.pow(10,d);
+    min *= k, max *= k, tick *= k;
+    var base = getBase(tick);
+    
+    base *= tick/base <= 5? 1: 10;
+    var btick = Math.round(tick/base)*base;
+    //var btick = tick/base <= 5? tick : Math.round(tick/(base*10))*base*10;
+    //var btick = tick/base <= 5? tick : Math.round(tick/(base*10))*base*10;
+    
+    var rmin = Math.floor(min/btick)*btick;
+    var rmax = rmin + Math.floor((max-rmin)/btick + 1)*btick;
+    var rlen = Math.floor((max-rmin)/tick + 1);
+    var blen = (rmax-rmin)/btick;
+    //console.log([btick,rmin,rmax,tick,rlen,blen]);
+    
+    var r = {base:base/k, btick:btick/k, min:rmin/k, max:rmax/k, tick:tick/k, len:rlen, blen:blen};
+    //console.log(r);
+    return r;
+}
+
+function recommendsetting(data, range, n, d) {
+    if(!n) n = 8;
+    
+    if(!range || isNaN(range.min) || isNaN(range.max)) {
+        var range = minmax(data);
+    }
+    var tick = (range.max-range.min)/n;
+    var b = getBase(tick);
+    var tb = tick/b;
+    var tick = b*(tb<1.25? 1:(tb<1.5? 2:
+                              (tb<5.5? Math.round(tb):
+                               (tb<6.25? 5:10))));
+    return getRange(range.min,range.max,tick, d);
+}
+
+
+// 四分位数
+function getquartiles(data, type) {
+    var items = data.concat().sort(numericcmp);//数値として
+    var n = items.length;
+    var v = new Array(5);
+    switch(type || "tukey") {
+        case "moor_mccabe"://Moor & McCabe's hinge (教科書)
+            var h = Math.floor(n/2), q = Math.ceil(h/2);
+            v[0] = items[0];
+            v[1] = (items[q-1] + items[h-q])/2;
+            v[2] = (items[n-1-h] + items[h])/2;
+            v[3] = (items[n-h+q-1] + items[n-q])/2;
+            v[4] = items[n-1];
+            break;
+        case "tukey": //Tukey's hinges
+            var h = Math.ceil(n/2), q = Math.ceil(h/2);
+            v[0] = items[0];
+            v[1] = (items[q-1] + items[h-q])/2;
+            v[2] = (items[h-1] + items[n-h])/2;
+            v[3] = (items[n-h+q-1] + items[n-q])/2;
+            v[4] = items[n-1];
+            break;
+        case "interpolate"://Interpolation method using the N-1 basis (表計算)
+            for(i=0;i<5;i++) {
+                var t = (n-1)*i/4, tt = t-Math.floor(t);
+                v[i]=(1-tt)*items[Math.floor(t)] + tt*items[Math.ceil(t)];
+            }
+            break;
+    }
+    
+    return v;
+}
+
+// utility
+
+function cleand(v, d) {
+    if(d==undefined) d = 4;
+    return isNaN(v)? "" : parseFloat(parseFloat(v).toFixed(d));
+}
+function digit(v) {
+    return v? Math.floor(Math.log(v)/Math.log(10)) : -1;
+}
+function getBase(v) {
+    return Math.pow(10, digit(v));
+}
+function getTick(max) {
+    if(max<=5) return 1;
+    var base = getBase(max);
+    var v = max/base;
+    return (v>=5? 1 : v>=2? 0.5 : v>1? 0.2 : 0.1) * base;
+}
+
+function getPointDigit(data) {
+    var i;
+    var maxd = 0;
+    for(i=1; i<data.length; i++) {
+        var d = (data[i]+".").split(".")[1].length;
+        if(d > maxd) maxd = d;
+    }
+    return maxd;
+}
+
+function fillArray(length, v) {
+    var i;
+    var a = new Array(length);
+    for(i=0; i<length; i++) a[i]=v;
+    return a;
+}
+function xNaN(v) {
+    return isNaN(v)? "" : v;
+}
+
+if(!Array.prototype.fill) { //for IE
+	Array.prototype.fill = function(value) {
+		for(var i=0; i<this.length; i++) this[i]=value;
+		return this;
+	}
+}
+]]></script>
+<script><![CDATA[//data.js 20.1219
+//data.js 2012 (c) 2017, 2020 aokih@icu.ac.jp
+
+function EventDispatcherPrototype() {
+    this.constructor = arguments.callee;
+    
+    //public
+    this.addEventListener = addEventListener;
+    this.removeEventListener = removeEventListener;
+    this.dispatchEvent = dispatchEvent;
+    
+    function addEventListener(type, listener) {
+        var lis = this.listendic[type];
+        if(!lis) this.listendic[type]=lis=[];
+        if(lis.indexOf(listener)<0) {
+            lis.push(listener);
+        }
+    }
+    function removeEventListener(type, listener) {
+        var lis = this.listendic[type];
+        if(!lis) return;
+        var i = lis.indexOf(listener);
+        if(i>-1) {
+            lis.splice(i,1);
+        }
+    }
+    function dispatchEvent(ev) {
+        var lis = this.listendic[ev.type];
+        if(!lis) return;
+        lis = lis.slice();
+        ev.target = this;
+        //console.log(["dispatch:"+ev.type, lis]);
+        for(var i=0;i<lis.length; i++) {
+            lis[i](ev);
+        }
+    }
+    
+    Object.defineProperty(this, "listendic", {get:function(){return this._listendic||(this._listendic={}) }});
+}
+
+SeriesPrototype.prototype = new EventDispatcherPrototype();
+function SeriesPrototype() {
+    this.constructor = arguments.callee;
+    // public
+    this.clear = clear;
+    this.addDatum = addDatum;
+    this.getValue = getValue;
+    this.getValues = getValues;
+    this.findIndex = findIndex;
+    this.findIndexRel = findIndexRel;
+    this.setRelAt = setRelAt;
+    this.getRelAt = getRelAt;
+    this.setRank = setRank;
+    
+    Object.defineProperty(this, "length", {get: function(){return this.data.length}});
+    
+    this.clear();
+    
+    function clear() {
+        //console.log(this)
+        this.data = [];
+        //this.index = index;
+        this.values = {};
+    }
+    function addDatum(value, srce, rel) {
+        var d = {v:value, src:srce, rel:rel||{}};
+        this.data.push(d);
+    }
+
+    function getValue(i) {
+        return this.data[i].v;
+    }
+    function getValues() {
+        return this.data.map(function(d){return d.v});
+    }
+    function setRelAt(i, rel, e) {
+        this.data[i].rel[rel] = e;
+    }
+    function getRelAt(i, rel) {
+        return this.data[i].rel[rel];
+    }
+    function findIndexRel(rel, e) {
+        return this.data.findIndex(function(d){return d.rel[rel]==e});
+    }
+    function findIndex(v) {
+        return this.data.findIndex(function(d){return d.v==v});
+    }
+    
+    function setRank() {
+        var arr = this.data.slice();
+        arr.sort(function(a,b){return a.v-b.v});
+        arr.forEach(function(datum,i){ datum.rel.rank=i });
+    }
+}
+
+Series.prototype = new SeriesPrototype();
+function Series(index) {
+    this.constructor = arguments.callee;
+    
+    this.constructor.list.push(this);
+    this.index = index;
+    this.clear();
+    
+    /*var self = this;
+    setTimeout
+       (function() {
+        self.constructor.dispatchEvent({type:"appended", value:self});
+        });*/
+}
+Series.title = "";
+Series.list = [];
+Series.getByIndex = function(index) { return Series.list.find(function(ser){ return ser.index==index }) };
+EventDispatcherPrototype.call(Series);
+]]></script>
+<script><![CDATA[//statui.js 21.0318
+//statui.js 2101 (c) 2017, 2021 aokih@icu.ac.jp
+
+var svgns;
+
+// 画面の向き・横長画面対応
+var vp = document.querySelector('meta[name="viewport"]');
+vp.w = parseInt((vp.content.match(/width=(\d+)/)||{1:1024})[1]);
+vp.h = parseInt((vp.content.match(/height=(\d+)/)||{1:724})[1]);
+vp.type = (location.href.match(/\/(?:[^_\/\\]*_){2}(\w)(?!.*[\/\\])/)||[])[1];
+
+if(navigator.userAgent.match(/^(?!.*\b(Android|Mobile)\b)/)) {//PC
+    addEventListener("DOMContentLoaded", pcsize)
+    //addEventListener("resize", pcsize)
+}
+function pcsize(ev) {
+    var sc = Math.min(innerWidth/vp.w, innerHeight/vp.h);
+    
+    var basee = document.documentElement; //.body
+    basee.style.transformOrigin = "left top";
+    basee.style.transform = "scale("+ sc +")";
+    //console.log(pageXOffset, document.documentElement.clientWidth, innerWidth);
+    
+    if(document.documentElement.clientWidth != innerWidth ||
+       navigator.userAgent.match(/^(?=.*\b(Edge)\b)/)) {
+        setTimeout(function(){ scroll(0,0) }, 500);
+    }
+}
+
+
+//compat
+if(!HTMLElement.prototype.matches) {
+    HTMLElement.prototype.matches = HTMLElement.prototype.msMatchesSelector;
+}
+// for IE10, dataset(5属性)を追加
+   (function() {
+if(!("dataset" in Element.prototype)) {
+    var dataset_get = function() {
+        return this._dataset || (this._dataset = new Dataset(this));
+    }
+    Object.defineProperty(Element.prototype, "dataset", {get: dataset_get});
+    function Dataset (e) { this.owner = e }
+    function data_get(atr) { return function() { return this.owner.getAttribute("data-"+atr) } }
+    function data_set(atr) { return function(v) { this.owner.setAttribute("data-"+atr, v) } }
+    
+    Object.defineProperty(Dataset.prototype, "selected", {get: data_get("selected"), set: data_set("selected")});
+    Object.defineProperty(Dataset.prototype, "index", {get: data_get("index"), set: data_set("index")});
+    Object.defineProperty(Dataset.prototype, "value", {get: data_get("value"), set: data_set("value")});
+    Object.defineProperty(Dataset.prototype, "tick", {get: data_get("tick"), set: data_set("tick")});
+	Object.defineProperty(Dataset.prototype, "required", {get: data_get("required"), set: data_set("required")});
+    }
+    })();
+
+
+var stage, stepbar, navigation, qselect;
+var dpanel, spanel, barpanel, fpanel, hpanel, qpanel, bpanel;
+
+window.addEventListener("xinit", cinit);
+
+function cinit() {
+    var svg = document.querySelector("svg");
+    svgns = svg.namespaceURI;
+    
+    stepbar = document.querySelector("#stepbar .toggle");
+    stepbar.addEventListener("change", handlestep);
+    
+    stage = document.getElementById("stage");
+    navigation = document.getElementById("navigation");
+    qselect = document.getElementById("qselect");
+    //qselect.addEventListener("changed", onqmethodchanged);
+    
+    document.getElementById("reset").addEventListener("click", onreset);
+	
+    document.getElementById("resume").addEventListener("change", onresume);
+    document.getElementById("save").addEventListener("click", onsave);
+
+    //var btnToggleenabled = document.getElementById("toggleenabled");
+    //btnToggleenabled.addEventListener("click", doToggleenabled);
+
+    
+    dpanel = new DataPanel();
+
+    if(xf.load()) {
+		restorecore();
+    } else {
+        viewpanel(dpanel);
+    }
+}
+addEventListener("xupdate", update);
+
+function update(ev) {
+	resetcore();
+	restorecore();
+}
+function restorecore() {
+	var title = xf.load("title");
+	if(title) {
+		document.getElementById("title").value = title;
+		Series.title = title;
+	}
+	var table = xf.load("table");
+	if(table) {
+		var colcount = table.reduce(function(p,v){return Math.max(p,v.length)},0);
+		dpanel.buildtable(table, colcount);
+	}
+	
+	dpanel.restore();
+	restorepanels()
+}
+
+function onreset(ev) {
+	if(ev.shiftKey) {
+		return document.getElementById(ev.altKey?"save":"resume").click();
+	}
+	resetcore();
+	
+    viewpanel(dpanel);
+    xf.remove();
+}
+function resetcore() {
+    Series.dispatchEvent({type:"reset"});
+    
+	Series.title = "";
+    Series.list = [];
+    delete Series._listendic;
+
+    activestep = [];
+    var es = document.querySelectorAll('.panel');
+    for(i=0; i<es.length; i++) {
+        var e = es[i];
+        e.style.display = "";
+        e.id = "";
+    }
+    
+    var es = document.querySelectorAll
+    ('#stepbar .toggle:first-of-type *,'
+     +'#stable tr :not(:first-child),'
+     +'#ftable thead tr:first-child th:nth-child(2)~th,'
+     +'#ftable thead tr:nth-child(2) th:nth-child(5)~th,'
+     +'#ftable tbody *,'
+     +'#ftable tfoot :not(:first-child),'
+     +'#qtable tr :not(:first-child),'
+     +'.serswitch *');
+    for(i=0; i<es.length; i++) {
+        var e = es[i];
+        e.parentNode.removeChild(e);
+    }
+
+    document.querySelector('#ftable thead tr:nth-child(2) th:nth-child(2)').setAttribute("data-index","1");
+    
+    qselect.style.display = "";
+    qselect.querySelector('[value="moor_mccabe"]').checked = true;
+    
+    dpanel.clear();
+    barpanel = spanel = fpanel = qpanel = hpanel = bpanel = undefined;
+    
+    dpanel = new DataPanel();
+}
+//function onqmethodchanged(ev) {
+//    var i;
+//    for(i=0; i<Series.list.length; i++) {
+//        Series.list[i].dispatchEvent({type:"qmethodchanged"});
+//    }
+//    Series.dispatchEvent({type:"qmethodchanged"});
+//}
+
+var appname = appname || location.pathname.split("/").pop().replace(/\.[^.]*$/,"");
+
+function onresume(ev) {
+    var file = ev.target.files[0];
+	var ext = file.name.split(".").pop().toLowerCase();
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        var src = reader.result;
+		if(ext=="arkb") {
+			src = src.substr(src.indexOf('{"bookmarks":['));
+		}
+		try {
+			var sto = JSON.parse(src);
+			if(ext=="arkb") {
+				sto = Object.values(sto.bookmarks[0].contentData)[0];
+			} else {
+				sto = sto[appname] || sto.statlook || sto.statKeirin;
+			}
+		} catch(e) { return formaterr(e.message); }
+		if(!(sto instanceof Object)) return formaterr("Not object");
+		
+		xf.save(null, sto);
+		update();
+	}
+	reader.readAsText(file);
+}
+function formaterr(message) {
+	alert("プロジェクトの保存型式が異なります\n\n" +message);
+}
+
+function onsave(ev) {
+	var stolen = Object.keys(xf.load()).length;
+	if(stolen==0 ||
+	   stolen==1 && xf.load("activestep")==0)
+		return alert("保存する内容がありません");
+
+	var F = "2-digit";
+	var timestamp = new Date().toLocaleString("ja-JP", {month:F, day:F, hour:F, minute:F}).split(/\D/);
+	timestamp.splice(2, 0, "-");
+	var filename = (Series.title || appname +"プロジェクト")+ timestamp.join("") +".prj";
+	
+	var ob = {};
+	ob[appname] = xf.load();
+	var data = JSON.stringify(ob);
+	
+	var a = document.createElement("a");
+
+    //a.setAttribute("href", "data:"+type+","+encodeURI(data));
+    var blob = new Blob([data], {type:"application/json"});
+    var url = URL.createObjectURL(blob);
+    a.setAttribute("href", url);
+	a.setAttribute("download", filename);
+	a.click();
+}
+
+function addpanel(type) {
+    var panels = xf.load("panels") || [];
+    panels.push(type);
+    xf.save("panels", panels);
+}
+
+function restorepanels() {
+    var panels = xf.load("panels");
+    if(!panels) {
+        viewpanel(dpanel);
+        return;
+    }
+    
+    xf.remove("panels");
+
+    var i;
+    var Constructs = {barpanel:BarchartPanel,
+        spanel:SummaryPanel, fpanel:FrequencyPanel, qpanel:QuartilePanel,
+        hpanel:HistgramPanel, bpanel:BoxplotPanel};
+
+    
+    for(i=0; i<panels.length; i++) {
+        var panel = panels[i];
+        if(!this[panel]) this[panel] = new Constructs[panel]();
+        this[panel].restore();
+    }
+    panels.unshift("dpanel");
+    
+    var steps = xf.load("activestep") || [];
+    for(i=0; i<steps.length; i++) {
+        //var panel = document.getElementById("panel" + panels[i]);
+        var panel = panels[steps[i]];
+        viewpanel(this[panel]);
+    }
+    
+}
+
+
+function handlestep(ev) {
+    var m = ev.target.id.match(/step(\d+)/);
+    if(!m) return;
+    
+    var panel = document.getElementById("panel"+m[1]);
+    if(ev.target.checked) {
+        panel.style.display = "inline-block";
+        activestep.push(ev.target);
+        if(activestep.length>2) {
+            var exp = activestep.shift();
+            exp.checked = false;
+            //handlestep({target:activestep[0]});
+            var restid = exp.id.replace("step","panel");
+            var rem = document.getElementById(restid);
+            rem.style.display = "none";
+        }
+        navigate(panel._nav);
+    } else {
+        if(activestep.length==1) {
+            ev.target.checked = true;
+            return;
+        }
+        //押した項目が消える
+        panel.style.display = "none";
+        var index = activestep.indexOf(ev.target);
+        activestep.splice(index,1);
+        var restid = activestep[0].id.replace("step","panel");
+        var rem = document.getElementById(restid);
+        navigate(rem._nav);
+        
+        //押した項目が残る
+        /*var index = activestep.indexOf(ev.target);
+        activestep.splice(index,1);
+        var restid = activestep[0].id.replace("step","panel");
+        var rem = document.getElementById(restid);
+        rem.style.display = "none";
+        activestep[0].checked = false;
+        ev.target.checked = true;
+        activestep = [ev.target];
+        navigate(panel._nav);*/
+    }
+    if(activestep.length<2) {
+        stage.classList.remove("doublepanel");
+    } else {
+        stage.classList.add("doublepanel");
+    }
+    xf.save("activestep", activestep.map(function(e){ return parseInt(e.id.substr(4)) }));
+}
+
+function navigate(text, panel) {
+    navigation.textContent = "";
+    navigation.insertAdjacentHTML("beforeend", text);
+    if(panel) {
+        panel.dom._nav = text;
+    }
+}
+
+function seriescolor(index, active) {
+    var si = index-1+Math.floor(index/5), h = (si?si*54-50:200)%360, s, l;
+    var d = Math.floor(index/8);
+    var s=100-d*40; l=90-30*d;
+    if(active) l*=0.75;
+    return "hsl("+h+","+s+"%,"+l+"%)";
+}
+
+var activestep = [];
+function regstep(e) { // e は .panel に含まれる任意の要素
+    var index = stepbar.querySelectorAll('input[type="checkbox"]').length;
+    
+    while(!(e.classList && e.classList.contains("panel"))){ e = e.parentNode }
+    e.id = "panel"+ index
+    //e.style.display = "inline-block";
+    e.parentNode.appendChild(e);
+    
+    var title = e.querySelector("h2").textContent;
+    
+    var cbox = document.createElement("input");
+    cbox.setAttribute("type", "checkbox");
+    cbox.id = "step"+ index;
+    stepbar.appendChild(cbox);
+    var lbl = document.createElement("label");
+    lbl.setAttribute("for", cbox.id);
+    lbl.textContent = title;
+    stepbar.appendChild(lbl);
+    //cbox.checked = true;
+    
+    //handlestep({target:cbox});
+    
+    return e;
+}
+function viewpanel(panel, visible) {
+    var m = panel.dom.id.match(/panel(\d+)/);
+    if(!m) return;
+    if(visible==undefined) visible = true;
+    
+    var cbox = document.getElementById("step"+m[1]);
+    if(visible != cbox.checked) {
+        cbox.checked = visible;
+        handlestep({target:cbox});
+        return true;
+    }
+}
+
+
+function completesetting(data, range/*,d*/) {//for ftable
+    var n = 7;
+	
+	var init = range;
+    
+    range = range || {
+        min: parseFloat(document.getElementById("dmin").value),
+        max: parseFloat(document.getElementById("dmax").value)};
+    
+    //var set = recommendsetting(data, range, null, d);
+    var tick = (range.max-range.min)/n;
+    var b = getBase(tick);
+    var tb = tick/b;
+    var tick = tb<1.25? 1:(tb<1.5? 2:
+							(tb<5.5? Math.round(tb):
+							(tb<6.25? 5:10)));
+	if(b>=1) tick*=b; else tick/=1/b;
+	//if(tick!=cleand(tick)) tick = cleand(tick);
+
+	var set = {min:range.min, max:range.max, tick:tick};
+	if(Series.totald>0) {
+		set.ttick = Math.pow(10,-Series.totald);
+	} else {
+		set.ttick = getBase(tick)/10;
+	}
+	if(init) {
+		var mbase = getBase(set.tick);
+		if(mbase>1) {
+			set.min = Math.floor(set.min / mbase) * mbase;
+			set.max = Math.ceil(set.max / mbase) * mbase;
+		} else {
+			set.min = Math.floor(set.min / mbase) / (1/mbase);
+			set.max = Math.ceil(set.max / mbase) / (1/mbase);
+		}
+		//set.max = set.min + Math.ceil((set.max-set.min) / tick) * tick;
+	}
+    set.len = Math.ceil((set.max-set.min)/tick);
+	
+    document.getElementById("dmin").value = set.min;
+    document.getElementById("dmax").value = set.max;
+    document.getElementById("dtick").value = set.tick;
+    document.getElementById("dtick").setAttribute("data-tick", set.ttick);
+    document.getElementById("dlen").value = set.len;
+    xf.save("fset", set);
+    
+    return set;//{min:set.min, max:set.max, tick:set.tick}
+}
+
+//
+function clearsvg(svg, selector) {
+    var i;
+    var sers = svg.querySelectorAll(selector || '.series, .label, .axis');
+    for(i=0; i<sers.length; i++) {
+        var ser = sers[i];
+        ser.parentNode.removeChild(ser);
+    }
+}
+function initchartY(svg, cw, ch, max) {
+    var i;
+    
+    clearsvg(svg);
+    
+    var e = svg.querySelector('.axis');
+    if(!e) {
+        var g = document.createElementNS(svgns, "g");
+        g.className.baseVal = "axis";
+        svg.appendChild(g);
+        
+        makeline(g, -5,0,cw,0);
+        makeline(g, -5,0,-5,-ch);
+    }
+    
+    var labelg = svg.querySelector('.label');
+    if(!labelg) {
+        labelg = document.createElementNS(svgns, "g");
+        labelg.className.baseVal = "label";
+        svg.appendChild(labelg);
+        
+        var ltick = getTick(max);
+        var cmax = Math.ceil(max/ltick)*ltick;
+        for(i=ltick; i<max+ltick; i+=ltick) {
+            var y = ch/cmax*i;
+            makeline(labelg, -5, -y, 0, -y);
+            makelabel(labelg, -10, -y, i, "end", 1);
+        }
+        svg.max = cmax;
+    }
+}
+
+// utility
+
+function setClickListenerById(id, listener) {
+    document.getElementById(id).addEventListener("click", listener);
+}
+function resetClickListenerById(id, listener) {
+    document.getElementById(id).removeEventListener("click", listener);
+}
+
+function maketd(tr, v, d, tagname) {
+    var i;
+    var td = document.createElement(tagname || "td");
+    if(typeof v == "number") {
+        v = cleand(v, d);
+    }
+    td.textContent += v;
+    tr.appendChild(td);
+    return td;
+}
+function makeline(parent, x1, y1, x2, y2, classname) {
+    var l = document.createElementNS(svgns, "line");
+    if(classname) l.className.baseVal = classname;
+    l.x1.baseVal.value = x1;
+    l.y1.baseVal.value = y1;
+    l.x2.baseVal.value = x2;
+    l.y2.baseVal.value = y2;
+    parent.appendChild(l);
+    return l;
+}
+function makerect(parent, x, y, width, height, fill, classname) {
+    var rect = document.createElementNS(svgns, "rect");
+    if(classname) rect.className.baseVal = classname;
+    rect.x.baseVal.value = x;
+    rect.y.baseVal.value = y;
+    rect.width.baseVal.value = width;
+    rect.height.baseVal.value = height;
+    if(fill) rect.setAttribute("fill", fill);
+    parent.appendChild(rect);
+    return rect;
+}
+function makecircle(parent, x, y, r, fill) {
+    var c = document.createElementNS(svgns, "circle");
+    c.cx.baseVal.value = x;
+    c.cy.baseVal.value = y;
+    c.r.baseVal.value = r;
+    if(fill) c.setAttribute("fill", fill);
+    parent.appendChild(c);
+    return c;
+}
+function makelabel(parent, x, y, v, align, valign, className) {
+    var t = document.createElementNS(svgns, "text");
+    t.textContent = v;
+    if(className) t.className.baseVal = className;
+    parent.appendChild(t);
+    if(align) {
+        t.setAttribute("text-anchor", align);
+    }
+    var size = parseFloat(getComputedStyle(t).fontSize);//console.log(size, v)
+    t.setAttribute("x", x);
+    //var b = t.getBBox();
+    //y += b.height * (valign||0)*0.7/2;
+    y += size * 0.9 * (valign||0)/2;
+    t.setAttribute("y", y);
+	t.valign = valign
+    //t.xend = b.x + b.width * 1.5;
+    var aligni = 2-Math.max(0,["start","middle","end"].indexOf(align));
+    t.xend = x + size*0.5*t.textContent.length * aligni ;
+    //console.log([size, t.textContent.length , aligni, align])
+    //console.log(b.height, getComputedStyle(t).fontSize)
+    return t;
+}
+
+function enclosednum(v) {
+	var u;
+	
+	if(v<=20) u = 0x2460 + v-1;
+	else if(v<=35) u = 0x3251 + v-21;
+	else if(v<=50) u = 0x32B1 + v-36;
+	else return "("+v+")";
+	
+	return String.fromCharCode(u);
+}
+
+// suppli
+if(!Array.prototype.findIndex) {
+    Array.prototype.findIndex = function(f, thisob) {
+        var ret,ff=function(e,i){if(f.apply(thisob,arguments)){ret=i;return true}};
+        return this.some(ff)? ret:-1;
+    }
+}
+if(!Array.prototype.find) {
+    Array.prototype.find = function(f, thisob) {
+        var ret,ff=function(e,i){if(f.apply(thisob,arguments)){ret=e;return true}};
+        return this.some(ff)? ret:undefined;
+    }
+}
+]]></script>
+<script><![CDATA[//step-data.js 21.0318
+//statlook step-data 2012 (c) 2017, 2020 aokih@icu.ac.jp
+
+//dtpcv became obsolete in 2020
+
+function DataPanel() {
+    //public
+    this.buildtable = buildtable;
+    this.restore = restore;
+    this.entertext = entertext;
+    this.clear = clear;
+    
+    var titlee = document.getElementById("title");
+    titlee.addEventListener("change", gtitlechange);
+    
+    var dinput = document.getElementById("dinput");
+    dinput.addEventListener("input", enterdata);
+    
+    var dtable = document.getElementById("dtable");
+	if(window.PointerEvent) {
+		dtable.addEventListener("pointerdown", actiondtable);
+	} else {
+		dtable.addEventListener("mousedown", actiondtable);
+		dtable.addEventListener("touchstart", actiondtable);
+	}
+    
+    Series.addEventListener("reset", reset);
+    var self = this;
+    this.dom = regstep(dtable);
+    navigate(GUIDE_DATAPANEL, this);
+    
+    var serlist = document.getElementById("serlist");
+    serlist.addEventListener("change", selectseries);
+    serlist.addEventListener("click", clickseries);
+    var addser = document.getElementById("addser");
+    addser.addEventListener("click", addseries);
+    
+    var btnCBPaste = document.getElementById("cbpaste");
+    if(window.clipboardData) {
+        btnCBPaste.addEventListener("click", cbimport);
+    } else {
+        btnCBPaste.parentNode.style.display = "none";
+    }
+    var btnFileload = document.getElementById("datafileload");
+    if(window.dtpcv) {
+        btnFileload.type = "button";
+        btnFileload.addEventListener("click", dtpcvfileload);
+    } else {
+        btnFileload.addEventListener("change", fileload);
+    }
+
+function clear() {
+    var i;
+    
+    titlee.removeEventListener("change", gtitlechange);
+    dinput.removeEventListener("input", enterdata);
+	if(window.PointerEvent) {
+		dtable.removeEventListener("pointerdown", actiondtable);
+	} else {
+		dtable.removeEventListener("mousedown", actiondtable);
+		dtable.removeEventListener("touchstart", actiondtable);
+	}
+    serlist.removeEventListener("change", selectseries);
+    serlist.removeEventListener("click", clickseries);
+    addser.removeEventListener("click", addseries);
+    btnCBPaste.removeEventListener("click", cbimport);
+    if(window.dtpcv) {
+        btnFileload.removeEventListener("click", dtpcvfileload);
+    } else {
+        btnFileload.removeEventListener("change", fileload);
+        btnFileload.value = "";
+    }
+    
+    delete dtable.labelcol;
+    delete dtable.labelrow;
+    
+    var es = self.dom.querySelectorAll('#dtable tr, #serlist li:not(:first-of-type)');
+    for(i=0; i<es.length; i++) {
+        var e = es[i];
+        e.parentNode.removeChild(e);
+    }
+    
+    titlee.value = "";
+    
+    var selser1 = self.dom.querySelector('#serlist li');
+    selser1.children[0].id = "selser1";
+    selser1.children[0].checked = false;
+    selser1.children[1].style.backgroundColor = seriescolor(1);
+    selser1.children[1].setAttribute("for", "selser1");
+    selser1.children[2].value = "";
+}
+    
+function cbimport(ev) {
+    entertext(clipboardData.getData("Text"));
+}
+function fileload(ev) {
+    var file = ev.target.files[0];
+    var reader = new FileReader();
+	var second;
+	reader.onload = function(ev) {
+		if(reader.result.indexOf("\ufffd")<0 || second)
+			onfileread(reader.result, file.name);
+		else
+			reader.readAsText(file, "Shift_JIS");
+		second = true;
+	}
+    reader.readAsText(file);
+}
+function dtpcvfileload(ev) {
+    dtpcv.showSelectFileUI(onfileselected);
+}
+function onfileselected(path) {
+    if(!path) return;
+    dtpcv.readFile(path, onfileread);
+}
+function onfileread(str, name) {
+    if(!str) return;
+	// breaking table
+	//if(dtable.children.length > 0) {
+		//insertdtable(dtable, name || "");
+		name = name? name.replace(/\.[^.]*$/,"") : "";
+	if(!Series.title) {
+		titlee.value = name;
+		gtitlechange(true);
+	} else {
+		entertext(name +"\n");
+	}
+	//}
+    entertext(str);
+    
+/*var blob = new Blob([str], {type:"text/plain"});
+var reader = new FileReader();
+reader.addEventListener("load", function(){entertext(reader.result)});
+reader.readAsText(blob, "shift-jis"); */
+}
+
+function gtitlechange(ev) {
+    Series.title = titlee.value;
+    if(ev) xf.save("title", Series.title);
+    Series.dispatchEvent({type:"titlechanged"});
+}
+    
+var activeser;
+function selectseries(ev) {//console.log(ev)
+    switch(ev.target.type) {
+        case "checkbox":
+            var cbox = ev.target;
+            var label = cbox.nextElementSibling;
+            var cid = parseInt(cbox.id.substr(6))
+            label.style.backgroundColor = seriescolor(cid, cbox.checked);
+            setseriescolor(activeser);
+            
+            if(cbox.checked) {
+                if(activeser && activeser!=cid) {
+                    var pre = serlist.querySelector('#selser'+activeser);
+                    if(pre) {
+                        pre.checked = false;
+                        pre.nextElementSibling.style.backgroundColor = seriescolor(pre.id.substr(6), false);
+                    }
+                }
+                activeser = cid;
+                setseriescolor(activeser, true);
+                
+                refreshselect(true);
+            } else {
+                activeser = null;
+            }
+            xf.save("data_active", activeser);
+            break;
+        case "text":
+            var text = ev.target;
+            var cbox = text.parentNode.firstElementChild;
+            var index = parseInt(cbox.id.replace("selser",""));
+            var ser = Series.getByIndex(index);
+            if(ser) {
+                var old = ser.title;
+                ser.title = text.value;
+                ser.dispatchEvent({type:"titlechanged", value:ser.title, oldValue:old});
+            }
+            var ssers = xf.load("sers") || {};
+            var sser = ssers[index];
+            if(!sser) ssers[index] = sser = {};
+            sser.title = text.value;
+            xf.save("sers", ssers);
+
+            break;
+    }
+}
+function setseriescolor(index, active) {
+    var color = seriescolor(index, active);
+    var es = dtable.querySelectorAll('[data-selected="'+index+'"]');
+    for(i=0; i<es.length; i++) {
+        es[i].style.backgroundColor = color;
+    }
+}
+var maxindex = 1;
+function addseries(ev) {
+    var index = ev.index? ev.index : maxindex+1;
+    if(maxindex < index) maxindex = index;
+    var id = "selser" + index;
+    var ser = serlist.firstElementChild.cloneNode(true);
+    ser.children[0].id = id;
+    ser.children[0].checked = activeser>0;
+    ser.children[1].setAttribute("for",id);
+    ser.children[1].style.backgroundColor = seriescolor(index);
+    ser.children[2].value = "";
+    serlist.appendChild(ser);
+
+    if(activeser) {
+        selectseries({target:ser.children[0]});
+    }
+}
+function clickseries(ev) {
+    switch(ev.target.value) {
+        case "−":
+            var cbox = ev.target.parentNode.firstElementChild;
+            removeseries(cbox.id.substr(6));
+    }
+}
+function removeseries(index) {
+    var i;
+    var es = dtable.querySelectorAll('[data-selected="'+index+'"]');
+    for(i=0; i<es.length; i++) {
+        es[i].removeAttribute("data-selected");
+        es[i].style.backgroundColor = "";
+    }
+    if(serlist.children.length>1) {
+        var cbox = serlist.querySelector('#selser'+index);
+        var li = cbox.parentNode;
+        if(cbox.checked) {
+            var ncbox = (li.nextElementSibling || li.previousElementSibling).firstElementChild;
+            ncbox.checked = true;
+            selectseries({target:ncbox});
+        }
+        li.parentNode.removeChild(li);
+        var ser = Series.getByIndex(index);
+        var seri = Series.list.indexOf(ser);
+        Series.list.splice(seri, 1);
+        ser.dispatchEvent({type:"expired"});
+    }
+    var ssers = xf.load("sers");
+    delete ssers[index];
+    xf.save("sers", ssers);
+}
+
+function entertext(str) {
+    dinput.value = str;
+    enterdata({target: dinput});
+}
+    
+function enterdata(ev) {
+    var target = ev.target;
+    var forcecsv = document.getElementById("forcecsv").checked;
+    if(target.value.match(/\n/)) {
+        insertdtable(dtable, target.value, forcecsv);
+        target.value = "";
+    }
+}
+
+function insertdtable(dtable, str, forcecsv) {
+    var i, j, k;
+    //window.inputstr = str;
+    // tab区切り，sp区切り，CSV判別
+    // ""がある場合は判定時は除く
+    // - tabあり → tab区切り
+    //  - spなし || コンマのとなりにsp → csv
+    //   - sp区切り→コンマ区切り（先頭が1~3桁 && 先頭以外ピリオドまでは全て3桁 && colsが増えない）違反 → csvでやりなおし
+    
+    var title;
+    var delim ,trim;
+	
+	//ダブルクオーテーション
+	//...Excelでコンマ，改行，引用符の存在でセル単位で付与される →エスケープし最後に回復
+	//...引用符は二重引用符化
+	var lasti = -1;
+	str = str.replace(/"([\S\s]*?)"/g,function(m, src, index){
+		if(lasti==index) src = '"'+ src;
+		lasti = index + m.length;
+		return src.replace(/[,\n]/,function(m){ return {",":"&comma;","\n":"&crlf;"}[m] });
+	})
+	
+	//区切り判定
+    if(!forcecsv) {
+        var nocsv = /^(?:[^,]|\b[-+]?(?:\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?\b)*$/;
+        if(str.indexOf("\t")>=0) {//tab区切り
+            delim = / *\t */;
+        } else if(str.match(nocsv)) {//空白区切り
+            delim = /  ?/;
+            //delim = / (?=[-+]?(?:\d{1,3}(?:,\d{3})*|\d+)(?:\.\d+)?(?: |$))/;
+            //数値が後に続かないものは前に結合
+        }
+    }
+    if(!delim) {// csv
+        delim = /\s*,\s*/;
+    }
+    
+    // 表テキスト解析
+    // Webkitでは列間はタブ\t
+    // IEではtd間はスペース\x20，th間は改行\n\nになる。caption後は(\n\s?){3:}...td要素までの改行がスペースとして入る可能性がある
+    
+    //IE形式表キャプション
+    var m = str.match(/^\s*([^\n]+)(?:\n\s?){3,}/);
+    if(m) {
+        title = m[1];
+        str = "\n"+ str.substr(m[0].length);
+    }
+    var rows = str.split("\n");//console.log(rows)
+    
+    //str = str.replace(/(^|\n)\n([^\n]+)\n([^\n]+)\n/g,"$1\n$2$3\n");
+    
+    var table = [];
+    
+    //プリスキャン
+    var colcount = 0, rowi;
+    for(i=0; i<rows.length; i++) {
+        var line = rows[i].replace(/ +$/,"");
+        if(line=="") continue;
+        
+        //IE形式ラベル行
+        if(rows[i-1]=="") {
+            if(rows[i+1]=="") {
+                if(table.length>0){
+                    if(table.length>1) {
+                        console.log("[WARN]2回目のラベル行 l." + table.length);
+                        continue;
+                    }
+                    var cols = table[0];
+                    cols.push(line);
+                } else {
+                    var cols = [line];
+                    table.push(cols);
+                }
+                line = null;
+            } else {
+                var ncols = rows[i+1].split(delim);
+                if(ncols.length==1 && !isNumber(ncols[0])) {//データ開始ではない
+                    rows[i] += rows.splice(i+1,1)[0];//次の行連結
+                    i--;
+                    continue;
+                }
+            }
+        }
+        if(line) {
+            var cols = line.split(delim);
+            table.push(cols);
+        }
+        if(colcount < cols.length) colcount = cols.length;
+    }
+	//エスケープ回復
+	table = table.map(function(row) {
+		return row.map(function(src){
+			return src.replace(/&(comma|crlf);/g,
+							   function(m,e){return {comma:',',crlf:'\n'}[e]})
+		})
+	})
+	
+    //IE以外表キャプション
+    var row1 = table[0].filter(function(v){return v});
+    
+    if(!m && colcount>1 && row1.length==1 && !isNumber(row1[0])) {
+        table.shift();
+        title = row1[0];
+    }
+    
+    //webkit セル内改行を結合
+    var pcols = table[0];
+    for(i=1; i<table.length; i++, pcols=cols) {
+        var cols = table[i];
+        if(!isNumber(cols[0]) && !isNumber(pcols[pcols.length-1]) //前後ともデータではない
+           && pcols.length+cols.length-1 <= colcount) { //結合しても最大列数を超えない
+            pcols[pcols.length-1] += cols.shift();
+            cols = pcols.concat(cols);
+            table.splice(--i, 2, cols);
+        }
+    }
+    //既存
+    if(title) {
+        titlee.value = title;
+        gtitlechange(true);
+    }/* else {
+        xf.remove("title");
+    }*/
+
+    if(table.length>0) return buildtable(table, colcount);
+}
+function buildtable(table, colcount, appendcol) {
+    //console.log(JSON.stringify(table));
+
+    var labelrow = !table[0].some(isNumber);
+    var labelcol = table.length>1 && table.every(function(row){return !isNumber(row[0])});
+    
+    dtable._labelrow |= labelrow;
+    dtable._labelcol |= labelcol;
+    
+    //現状の表
+    var rowes = dtable.querySelectorAll('tr');
+    rowes = Array.prototype.slice.apply(rowes);
+    var rowi = rowes.length;
+	var existcol = rowes.length && rowes[0].querySelectorAll('th').length - 1/*交差セル*/;
+    colcount = Math.max(existcol, colcount);
+    //console.log(colcount);
+    
+    //データ確保
+    var pretable = [];
+    for(i=0; i<rowes.length; i++) {
+        var row = [];
+        pretable.push(row);
+        var tds = rowes[i].children;
+        for(j=0; j<tds.length; j++) {
+            row.push(tds[j].textContent);
+        }
+    }
+    
+    //列追加
+    if(rowi>0) {//console.log(existcol, colcount)
+        for(k=existcol; k < colcount; k++) {
+            maketd(rowes[0], k+1, null, "th");
+			//pretable[0].push("");
+            for(j=1; j<rowes.length; j++) {
+                maketd(rowes[j], "");
+            }
+        }
+    }
+    
+    //console.log([rowi, labelrow, labelcol, colcount])
+    if(/*rowi==0 &&*/ !labelcol) colcount++;
+	
+    //列ラベル行がない場合に列ラベルを追加
+	var cols = table[0];
+	if(rowi==0 && !labelrow) {
+        var cols = [];
+        if(labelcol) cols.push("");
+		if(table.length>1 && colcount-1 == 1 && titlee.value) {
+			cols.push(titlee.value);
+		} else {
+			for(i=1; i<colcount; i++) cols.push(i.toString());//"");//
+		}
+        table.unshift(cols);
+    }
+    //行ラベル列がない場合に行ラベルを追加
+    if(!labelcol) {
+		table.forEach(function(row,i){row.unshift((rowi+i).toString())});//"")});//
+        if(rowi==0) table[0][0] = "";
+    }
+    //console.log(table);
+    
+    for(i=0; i<table.length; i++,rowi++) {
+        var cols = table[i];
+        
+        /*if(!cols.some(isNumber) && rowi>0) {//全て項目名 = 新しい系列
+            rowi--;
+            continue;
+        }*/
+        
+        /*if(appendcol && rows[rowi]) {
+            var tr = rowes[rowi];
+        } else {*/
+            var tr = document.createElement("tr");
+            dtable.appendChild(tr);
+            rowes.push(tr);
+            //maketd(tr, rowi || "No.", null, "th");
+            maketd(tr, cols[0], null, "th")._pos = [0,rowi];
+        //}
+        for(j=1; j<cols.length; j++) {
+            var cell = cols[j].trim();
+            if((cell && !isNumber(cell))||rowi==0) {
+                maketd(tr, cell, null, "th")._pos = [j,rowi];
+            } else {
+                maketd(tr, cell)._pos = [j,rowi];
+            }
+        }
+		
+        for(; j<colcount; j++) {
+            maketd(tr, "")._pos = [j,rowi];
+        }
+    }
+    
+    //console.log(pretable);console.log(table)
+    var savetable = pretable.concat(table);//console.log(savetable)
+    if(!dtable._labelrow) savetable.shift();
+    if(!dtable._labelcol) savetable.forEach(function(row){ row.shift() });
+    
+    xf.save("table", savetable);//console.log(savetable)
+    
+    return (colcount>0 && table.length>1);
+}
+function restore() {
+    var i;
+
+    var title = xf.load("title");
+    if(title) titlee.value = title;
+    
+    var ssers = xf.load("sers")||{};
+
+    var mini = ssers && Object.keys(ssers).length>0? Math.min.apply(null, Object.keys(ssers)) : 1;
+    if(mini!=1) {
+        var cbox = document.getElementById("selser1");
+        cbox.id = "selser"+mini;
+        var label = cbox.nextElementSibling;
+        label.setAttribute("for", cbox.id);
+        label.style.backgroundColor = seriescolor(mini);
+        maxindex = mini;
+    }
+    
+    var index;
+    for(index in ssers) {
+        var sser = ssers[index];
+        if(index!=mini) {
+            addseries({index:parseInt(index)});
+            //addseries({index:index});console.log(index);
+        }
+        var cbox = document.getElementById("selser"+ index);
+        cbox.nextElementSibling.nextElementSibling.value = sser.title;
+        
+        var poss = sser.sel;
+        if(poss) {
+            var ps = poss.concat(sser.tsel);
+            for(i=0; i<ps.length; i++) {
+                var col = ps[i][0], row = ps[i][1];
+                var td = dtable.children[row].children[col];
+                td.setAttribute("data-selected", index);
+                td.style.backgroundColor = seriescolor(index);
+            }
+            var ser = getSeries(index, sser.dir);//console.log("getser")
+            ser.title = sser.title;
+        }
+    }
+    var d = Series.list.reduce(function(p,v){ return Math.max(p,v.d)}, 0);
+    Series.totald = d;
+    
+    var index = xf.load("data_active");
+    if(index) {
+        var cbox = document.getElementById("selser"+ index);
+        cbox.checked = true;
+        var label = cbox.nextElementSibling;
+        label.style.backgroundColor = seriescolor(index, true);
+        setseriescolor(index, true);
+        activeser = index;
+    }
+    
+}
+
+var eventpair = {mousedown:"mouseup", touchstart:"touchend"};
+function actiondtable(ev) {
+	if(ev.button!=0) return;
+	
+    if(activeser) selectdtable(ev.target);
+}
+function selectdtable(target) {
+    var i;
+    
+    var invalidsers = {}, dir;
+    
+    var prev = target.getAttribute("data-selected");
+    var select = prev!=activeser;
+    if(select) {
+        target.setAttribute("data-selected", activeser);
+        target.style.backgroundColor = seriescolor(activeser, true);
+        if(prev) {
+            invalidsers[prev] = true;
+            // //var preser = Series.getByIndex(prev);
+            // preser = getSeries(prev);//, preser);
+            // preser.dispatchEvent({type:"changed"});
+        }
+    } else {
+        target.removeAttribute("data-selected");
+        target.style.backgroundColor = "";
+    }
+    
+    if(target.tagName=="th") {
+        var title = target.textContent;
+        //console.log(activeser)
+        var sertitlee = document.querySelector('#selser'+activeser+'~input[type="text"]');
+        if(!sertitlee.value) {
+            sertitlee.value = title;
+        }
+        
+        
+		if(target.matches('th:first-of-type')) { //row header
+            var es = target.parentNode.querySelectorAll('td');
+            if(select) dir = 'h';
+			else if(dtable.querySelector('tr:first-of-type th[data-selected]') &&
+					!dtable.querySelector('th:first-of-type[data-selected]') ) dir = 'v';
+		} else { //col header
+			//if(target.matches('tr:first-of-type th')) { //先頭行のみ
+			
+            //var coles = Array.prototype.slice.call(target.parentNode.querySelectorAll('th'));
+			//var coli = coles.indexOf(target);
+			var coli = target.cellIndex;
+            //先頭行のみ //var es = dtable.querySelectorAll('tr:not(:first-of-type) td:nth-child('+(coli+1)+')');
+			var rowi = target.closest("tr").rowIndex;
+			var es = target.closest('table').querySelectorAll('tr:nth-child('+ (rowi+1) +') ~ tr td:nth-child('+(coli+1)+')');
+            if(select) dir = 'v';
+			else if(!dtable.querySelector('tr:first-of-type th[data-selected]') &&
+					dtable.querySelector('th:first-of-type[data-selected]') ) dir = 'h';
+		}
+        
+        if(es) {
+            for(i=0; i<es.length; i++) {
+                var prev = es[i].getAttribute("data-selected");
+                if(prev && prev!=activeser) invalidsers[prev] = true;
+                if(select) {
+                    es[i].setAttribute("data-selected", activeser);
+                    es[i].style.backgroundColor = seriescolor(activeser, true);
+                    //es[i].sertitle = title;
+                } else if(prev) {
+                    es[i].removeAttribute("data-selected");
+                    es[i].style.backgroundColor = "";
+                }
+            }
+        }
+    }
+    
+    for(prev in invalidsers) {
+        prevser = getSeries(prev);
+        prevser.dispatchEvent({type:"changed"});
+    }
+    
+    refreshselect(null, dir);
+    
+    /**/
+    document.getElementById("op1").style.display = document.querySelectorAll('[data-selected]:not(th)').length>0? "block":"";
+}
+
+function refreshselect(preserve, dir) {
+    var ser = Series.getByIndex(activeser);
+    newser = !ser;
+    
+    if(!preserve || newser) {
+        ser = getSeries(activeser, dir);
+        
+        var d = Series.list.reduce(function(p,v){ return Math.max(p,v.d)}, 0);
+        Series.totald = d;
+        
+        if(newser) Series.dispatchEvent({type:"appended", value:ser});
+        else ser.dispatchEvent({type:"changed"});
+    }
+    
+    if(ser.length>0) {
+        if(!barpanel) barpanel = new BarchartPanel();
+        barpanel.drawbar(ser);
+        viewpanel(barpanel);
+    } else {
+        ser.dispatchEvent({type:"changed"});
+    }
+}
+function reset() {
+    btnFileload.removeEventListener("click", fileload);
+    
+    titlee.removeEventListener("change", gtitlechange);
+    dinput.removeEventListener("input", enterdata);
+	if(window.PointerEvent) {
+		dtable.removeEventListener("pointerdown", actiondtable);
+	} else {
+		dtable.removeEventListener("mousedown", actiondtable);
+		dtable.removeEventListener("touchstart", actiondtable);
+	}
+}
+    
+function getSeries(index, dir) {
+    var i, j;
+    
+    var ser = Series.getByIndex(index);
+    if(!ser) {
+        ser = new Series(index);
+    } else {
+        ser.clear(index);
+        ser.sorted = false;
+    }
+    if(dir) ser.dir = dir;
+    
+    var poss = [], tposs = [];
+
+    var queryattr = index? '="'+index+'"' : '';
+    var tdes = dtable.querySelectorAll('[data-selected'+queryattr+']');
+	
+	//原則dirの方向でスキャンする。ただし1系列だけ行/列ラベルが選択されている場合は行/列の乱れがあるとみなし反転する
+	if(ser.dir=='v' && !(dtable.querySelectorAll('tr:first-of-type th[data-selected]').length == 1)
+	|| ser.dir=='h' && dtable.querySelectorAll('th:first-of-type[data-selected]').length == 1) {
+        tdes = Array.prototype.slice.apply(tdes);
+        tdes.sort(function(a,b){ return a._pos[0] - b._pos[0]; });
+    }
+    
+    var maxd = 0;
+
+	var trs = Array.prototype.slice.call(dtable.querySelectorAll('tr'));
+	if(trs.length>0) {
+		//列ラベル取得
+		var colheads = trs.slice();
+		var headline = colheads[0]
+		for(i=1; i<trs.length; i++) {
+			if(colheads[i].querySelector('td:not(:empty)')) {
+				colheads[i] = headline;
+			} else {
+				headline = colheads[i];
+			}
+		}
+		//行ラベル取得
+		var rowheads = [trs.map(function(tr){ return tr.children[0] })];
+		var headvline = rowheads[0];
+		for(j=1; j<trs[0].children.length; j++) {
+			var vline = [];
+			for(i=0; i<trs.length; i++) {
+				if(trs[i].children[j].matches('td:not(:empty)')) {
+					vline = headvline;
+					break;
+				}
+				vline.push(trs[i].children[j]);
+			}
+			rowheads.push(vline);
+			headvline = vline;
+		}
+	}
+	
+	var labeldic = {}
+    for(j=0; j<tdes.length; j++) {
+        var td = tdes[j];
+        var text = td.textContent;
+        if(text && td.tagName=="td") {
+			var d = (text+".").split(".")[1].length;
+			if(d > maxd) maxd = d;
+			var rowi = trs.indexOf(td.parentNode);
+			var coli = Array.prototype.indexOf.call(td.parentNode.children, td);
+			var rowlabel = rowheads[coli][rowi].textContent;
+			var collabel = colheads[rowi].children[coli].textContent;
+			var rel = undefined;
+			if(ser.dir=="v") {
+				rel = {label: rowlabel, group: collabel};
+			} else if(ser.dir=="h") {
+				rel = {label: collabel, group: rowlabel};
+			} else {
+				rel = {label: rowlabel +" "+ collabel};
+			}
+			if(rel && rel.label) {
+				if(!(rel.label in labeldic)) labeldic[rel.label] = [];
+				labeldic[rel.label].push(rel);
+			}
+			ser.addDatum(parseFloat(text.replace(/,/g,"")),td,rel);
+			poss.push(td._pos);
+        } else {
+            tposs.push(td._pos);
+        }
+    }
+	//項目名が重複する場合，属する行/列ラベルgroupを追加して区別する
+	//ただし，グループ名に全く多様性がなければ追加しない
+	var addgroup = false; //必要性判定
+	for(var label in labeldic) {
+		var duplabels = labeldic[label];
+		if(duplabels.length==1) continue; //重複した項目名がなければパス
+		var groupdic = {};　//グループ名の多様性を調べる
+		for(i=0; i<duplabels.length; i++) {
+			var rel = duplabels[i];
+			groupdic[rel.group] = true;
+		}
+		if(Object.keys(groupdic).length>1) {
+			addgroup = true; //複数あるケースが一つでもある
+			break;
+		}
+	}
+	if(addgroup) { //全てにgroupを追加
+		for(var label in labeldic) {
+			var duplabels = labeldic[label];
+			for(i=0; i<duplabels.length; i++) {
+				var rel = duplabels[i];
+				rel.label = rel.group +" "+ rel.label;
+			}
+		}
+	}
+	
+    ser.d = maxd;
+    
+    var sertitlee = self.dom.querySelector('#selser'+index+'~input[type="text"]');
+	if(!sertitlee) console.log('#selser'+index+'~input[type="text"]');
+	ser.title = sertitlee.value;
+    
+    var ssers = xf.load("sers") || {};
+    var sser = ssers[index];
+    if(!sser) {
+        ssers[index] = sser = {};
+    }
+    sser.sel = poss;
+    sser.tsel = tposs;
+    sser.title = ser.title;
+    if(ser.dir) sser.dir = ser.dir;
+    xf.save("sers", ssers);
+    
+    return ser;
+}
+
+}
+]]></script>
+<script><![CDATA[//step-table.js 21.0111
+//statlook step-table 2012 (c) 2017, 2020 aokih@icu.ac.jp
+
+// 概要
+function SummaryPanel() {
+    //public
+    this.makesummary = makesummary;
+    this.restore = restore;
+    
+    Series.addEventListener("appended", addseries);
+    Series.addEventListener("reset", reset);
+    var self = this;
+    addpanel("spanel");
+    var stable = document.getElementById("stable");
+    stable.parentNode.parentNode.style.display = "";
+    
+    this.dom = regstep(stable);
+    var self = this;
+    navigate(GUIDE_SUMMARYPANEL, this);
+    
+    setClickListenerById("reqallsummary", reqall);
+    setClickListenerById("makeftable", makeftable);
+    setClickListenerById("makeqtable", makeqtable);
+
+    var vtypes = ["count", "min", "max", "sum", "ave", "median"];
+    
+function makesummary() {
+    var i;
+    for(i=0; i<Series.list.length; i++) {
+        var ser = Series.list[i];
+        makesummaryfor(ser);
+    }
+}
+function restore() {
+    var ssers = xf.load("sers");
+    for(var index in ssers) {
+        var sser = ssers[index];
+        var ser = Series.getByIndex(index);
+        for(type in sser.values) {
+            ser.values[type] = sser.values[type];
+        }
+    }
+    
+    makesummary();
+}
+function addseries(ev) {
+    makesummaryfor(ev.value);
+}
+function reset() {
+    resetClickListenerById("reqallsummary", reqall);
+    resetClickListenerById("makeftable", makeftable);
+    resetClickListenerById("makeqtable", makeqtable);
+	//document.getElementById("reqallsummary").style.display = "";
+	resetalltablebutton(stable);
+}
+    
+function makesummaryfor(ser) {
+
+    var title = ser.title;
+    var data = ser.getValues();
+    var mm = minmax(data);
+    var sum = getsum(data);
+    var ave = getaverage(data);
+    var median = getmedian(data);
+    var values = [data.length, mm.min, mm.max, sum, ave, median];
+
+    var index = ser.index;
+    var tr = stable.querySelector("tr:first-of-type");
+    var ths = Array.prototype.slice.apply(tr.children);
+    //var tdi = ths.findIndex(function(th){ return th.dataset.index==index });
+    //for webkit bug: undefinedを返す時がある
+    var tdi = ths.findIndex(function(th){ return th.getAttribute("data-index")==index });
+
+    if(tdi<0) {
+        ser.addEventListener("changed", redraw);
+        ser.addEventListener("titlechanged", titlechange);
+        ser.addEventListener("expired", expire);
+
+		var opened = false; //必要な値が揃ったらボタンを表示する動作
+        var th = maketd(tr, title || "(系列)", null, "th");
+        th.dataset.index = index;
+        th.style.backgroundColor = seriescolor(ser.index);
+        for(i=0; i<vtypes.length; i++) {
+            tr = tr.nextElementSibling;
+            var v = ser.values[vtypes[i]];
+            if(v==undefined) {
+                var b = maketdb(tr, vtypes[i], ser);
+                b.setAttribute("data-value", cleand(values[i]));
+            } else {
+                maketdacquire(tr, v, vtypes[i], ser);
+				opened = true;
+            }
+        }
+		buttonvisible(stable, opened);
+    } else {
+        tr.children[tdi].textContent = title || "(系列)";
+        for(i=0; i<values.length; i++) {
+            tr = tr.nextElementSibling;
+            var td = tr.children[tdi];
+            //if(ser.values[vtypes[i]]==undefined)
+            var v = cleand(values[i]);
+            if(td.firstElementChild) {
+                td.firstElementChild.setAttribute("data-value", v);
+            } else {
+                td.textContent = v;
+            }
+        }
+    }
+}
+function redraw(ev) {
+    makesummaryfor(ev.target);
+}
+function titlechange(ev) {
+    var ser = ev.target;
+    var th = stable.querySelector('[data-index="'+ ser.index +'"]');
+    th.textContent = ser.title;
+}
+function expire(ev) {
+    var i;
+    
+    var ser = ev.target;
+    ser.removeEventListener("changed", redraw);
+    ser.removeEventListener("titlechanged", titlechange);
+    ser.removeEventListener("expired", expire);
+    
+    var index = ser.index;
+    var tr1 = stable.querySelector("tr:first-of-type");
+    var ths = Array.prototype.slice.apply(tr1.children);
+    var tdi = ths.findIndex(function(th){ return th.getAttribute("data-index")==index });
+    if(tdi<0) return;
+    
+    var trs = stable.querySelectorAll("tr");
+    for(i=0; i<trs.length ;i++) {
+        var tr = trs[i];
+        tr.removeChild(tr.children[tdi]);
+    }
+}
+
+function makeftable(ev) {
+    
+    //var r = getRange(set.min, set.max, set.tick);
+    
+    //viewpanel(spanel, false);//
+    
+    if(!fpanel) fpanel = new FrequencyPanel();
+    viewpanel(fpanel);
+    fpanel.makeftable();
+    
+    //var button = ev.currentTarget;
+    //if(button) button.style.display = "none";
+}
+
+function makeqtable(ev) {
+    var i;
+    //viewpanel(spanel, false);
+    //viewpanel(barpanel);
+    
+    if(!qpanel) qpanel = new QuartilePanel();
+    viewpanel(qpanel);
+    
+    qpanel.makeqtable();
+
+    //var button = ev.currentTarget;
+    //if(button) button.style.display = "none";
+}
+
+function reqall(ev) {
+    var i, j;
+    for(i=0; i<Series.list.length; i++) {
+        var ser = Series.list[i];
+        for(j=0; j<vtypes.length; j++) {
+            ser.dispatchEvent({type:"got"+ vtypes[j]});
+        }
+    }
+}
+}
+
+
+// 度数分布表
+function FrequencyPanel() {
+    //public
+    this.makeftable = makeftable;
+    this.restore = restore;
+    
+    Series.addEventListener("appended", addseries);
+    Series.addEventListener("reset", reset);
+    var self = this;
+    addpanel("fpanel");
+    var ftable = document.getElementById("ftable");
+    this.dom = regstep(ftable);
+    navigate(GUIDE_FREQUENCYPANEL, this);
+    
+    var dmine = document.getElementById("dmin");
+    var dticke = document.getElementById("dtick");
+    var dmaxe = document.getElementById("dmax");
+    var dlene = document.getElementById("dlen");
+    
+    var csetting = this.dom.querySelector('.csetting');
+    csetting.addEventListener("change", onfsetchange);
+    csetting.addEventListener("click", onfsetchange);
+    
+    //setClickListenerById("renewftable", renew);
+    setClickListenerById("makehist", makehist);
+    
+    
+function makeftable(update) {
+    
+    var set = !update? {}:{
+        min: parseFloat(dmine.value),
+        //max: parseFloat(dmaxe.value),
+        len: parseFloat(dlene.value),
+        tick: parseFloat(dticke.value)};
+
+    if(isNaN(set.min) || isNaN(set.len) || isNaN(set.tick)) {
+        var a = Series.list.reduce(function(p,v){ return p.concat(v.getValues()) }, []);
+        var r = minmax(a);
+        var k = Math.pow(10, Series.totald);
+        set = completesetting(a, {min:r.min, max:(r.max*k + 1)/k}, Series.totald);
+        
+        //console.log("setting generated");console.log(set);
+    }
+    
+    var i;
+    for(i=0; i<Series.list.length; i++) {
+        makeftablefor(Series.list[i], set.min, set.len, set.tick);
+    }
+}
+function restore() {
+    var i;
+    
+    var d = Series.list.reduce(function(p,v){ return Math.max(p,v.d)}, 0);
+    Series.totald = d;
+
+    var set = xf.load("fset");
+    if(set) {
+        dmine.value = set.min;
+        dmaxe.value = set.max;
+        dlene.value = set.len;
+        dticke.value = set.tick;
+        dticke.setAttribute("data-tick", set.ttick);
+        //dmaxe.value = set.min + set.tick * set.len;
+    }
+    var set = xf.load("ftable_set");
+    if(set) {
+        var i;
+        for(i=0; i<Series.list.length; i++) {
+            makeftablefor(Series.list[i], set.min, set.len, set.tick);
+        }
+    }
+}
+function addseries(ev) {
+    makeftablefor(ev.value, curset.min, curset.len, curset.tick);
+}
+/*function renew(ev) {
+    var min = parseFloat(dmine.value);
+    var max = parseFloat(dmaxe.value);
+    var len = parseFloat(dlene.value);
+    var tick = parseFloat(dticke.value);
+    if(isNaN(min) || isNaN(max) || isNaN(len)) return;
+    
+    makeftable(min, len, tick);
+}*/
+    
+var curset;
+function makeftablefor(ser, min, len, tick) {
+    var i, d;
+    
+    var title = ser.title;
+    var data = ser.getValues();
+    var d = digit(data.length) + 1;
+    //var pdig = Math.max(getPointDigit(data), (tick+".").toString().split(".")[1].length);
+    var pdig = ser.d;
+    
+    //var r = getRange(min, max, tick);
+    var k = Math.pow(10,pdig);
+    
+    var cres = countup(data, min, tick, len, pdig);
+    //console.log(cres);
+    
+    var carr = cres.arr;
+    var call = cres.count;
+    var total = 0;
+    var maxc = 0;
+
+    var index = ser.index;
+    var htrt = ftable.querySelector("thead tr"), htr = htrt.nextElementSibling;
+    var hths = Array.prototype.slice.apply(htr.children);
+    //var tdi = ths.findIndex(function(th){ return th.dataset.index==index });
+    //for webkit bug: undefinedを返す時がある
+    
+    if(curset) {
+        var tdi = hths.findIndex(function(th){ return th.getAttribute("data-index")==index });
+    } else {
+        var tdi = 1;
+        hths[1].setAttribute("data-index", index);
+    }
+    
+    if(tdi<0 || !curset) {
+        ser.addEventListener("changed", redraw);
+        ser.addEventListener("titlechanged", titlechange);
+        ser.addEventListener("expired", expire);
+    }
+
+    if(tdi<0) {
+        var th = t = maketd(htrt, ser.title, null, "th");//console.log(ser.title)
+        th.setAttribute("colspan", "4");
+        
+        var th = maketd(htr, htr.children[1].textContent,null,"th");
+        th.setAttribute("data-index", ser.index);
+        for(i=2; i<5; i++) {
+            maketd(htr, htr.children[i].textContent,null,"th");
+        }
+    } else {
+        var t = htrt.children[(tdi-1)/4+1];
+        t.textContent = ser.title;
+    }
+    t.style.backgroundColor = seriescolor(ser.index);
+    
+    //console.log([ftable.children.length,len])
+    var tbody = ftable.querySelector('tbody');
+    var tfoot = ftable.querySelector('tfoot');
+    
+    var es = tbody.querySelectorAll('tr');
+    es = Array.prototype.slice.apply(es);
+    if(!curset || curset.min!=min || curset.len!=len || curset.tick!=tick) {
+        for(i=0; i<len; i++) {
+            var gfrom = min + tick *i;
+            var gto = min + tick *(i+1);
+            var text = gfrom.toFixed(pdig) +"〜"+ gto.toFixed(pdig);
+            if(i < es.length) {
+                es[i].children[0].textContent = text;
+            } else {
+                var tr = document.createElement("tr");
+                maketd(tr, text);
+                tbody.appendChild(tr);
+                es.push(tr);
+            }
+        }
+        for(; i<es.length; i++) {
+            es[i].parentNode.removeChild(es[i]);
+        }
+    }
+    
+    //console.log("newcol:" + newcol);
+    for(i=0; i<len; i++) {
+        if(maxc<carr[i]) maxc = carr[i];
+        total += carr[i];
+        
+        var tr = es[i];
+        if(tdi<0 || tr.children.length-1< tdi) {
+            maketd(tr, carr[i]);
+            maketd(tr, total);
+            maketd(tr, carr[i]/call, d);
+            maketd(tr, total/call, d);
+        } else {
+            tr.children[tdi].textContent = carr[i];
+            tr.children[tdi+1].textContent = total;
+            tr.children[tdi+2].textContent = cleand(carr[i]/call, d);
+            tr.children[tdi+3].textContent = cleand(total/call, d);
+        }
+    }
+    
+    tr = tfoot.firstElementChild;
+    if(tdi<0 || tr.children.length-1< tdi) {
+        maketd(tr, total, 0);
+        maketd(tr, "");
+        maketd(tr, total/call, 0);
+        maketd(tr, "");
+    } else {
+        tr.children[tdi].textContent = cleand(total, 0);
+        tr.children[tdi+1].textContent = "";
+        tr.children[tdi+2].textContent = cleand(total/call, 0);
+        tr.children[tdi+3].textContent = "";
+    }
+    
+    ser.maxc = maxc;
+    
+    var max = (k*min + tick*k*len)/k;
+    
+    curset = {min:min, max:max, len:len, tick:tick};
+    xf.save("ftable_set", curset);
+    
+    ftable.querySelector("caption").textContent = (Series.title? Series.title +" の" : "") +"度数分布表";
+}
+function redraw(ev) {
+    makeftablefor(ev.target, curset.min, curset.len, curset.tick);
+}
+function titlechange(ev) {
+    var ser = ev.target;
+    var index = ser.index;
+    var htrt = ftable.querySelector("thead tr"), htr = htrt.nextElementSibling;
+    var hths = Array.prototype.slice.apply(htr.children);
+    //var tdi = ths.findIndex(function(th){ return th.dataset.index==index });
+    //for webkit bug: undefinedを返す時がある
+    var tdi = hths.findIndex(function(th){ return th.getAttribute("data-index")==index });
+    
+    if(tdi<0) return;
+    
+    var th = htrt.children[(tdi-1)/4+1];
+    th.textContent = ser.title;
+}
+function expire(ev) {
+    var i, j;
+    
+    var ser = ev.target;
+    ser.removeEventListener("changed", redraw);
+    ser.removeEventListener("titlechanged", titlechange);
+    ser.removeEventListener("expired", expire);
+    
+    var index = ser.index;
+    var tr1 = ftable.querySelector("thead tr:nth-of-type(2)");
+    var ths = Array.prototype.slice.apply(tr1.children);
+    var tdi = ths.findIndex(function(th){ return th.getAttribute("data-index")==index });
+    if(tdi<0) return;
+    
+    var tr = ftable.querySelector("thead tr:first-of-type");
+    tr.removeChild(tr.children[(tdi-1)/4+1]);
+    var trs = ftable.querySelectorAll("thead tr:not(:first-of-type), tbody tr, tfoot tr");
+    for(i=0; i<trs.length ;i++) {
+        var tr = trs[i];
+        for(j=0; j<4; j++) {
+            tr.removeChild(tr.children[tdi]);
+        }
+    }
+}
+function reset(ev) {
+    var es = document.querySelectorAll('.csetting input[type="text"]');
+    for(i=0; i<es.length; i++) {
+        es[i].value = "";
+    }
+    csetting.removeEventListener("change", onfsetchange);
+    csetting.removeEventListener("click", onfsetchange);
+    resetClickListenerById("makehist", makehist);
+}
+
+function onfsetchange(ev) {
+    var k = Math.pow(10, Series.totald), d=0;
+    //var tick = parseFloat(dticke.value);
+    var ttick = parseFloat(dticke.getAttribute("data-tick") || 1);
+	//var tick = parseFloat(dticke.value || 1);
+
+    switch(ev.target.tagName) {
+        case "input":
+            var target = ev.target;
+            break;
+        case "button":
+            var b = ev.target;
+            var target = b.parentNode.previousElementSibling;
+            d = {"▼":-1, "▲":1}[b.textContent];
+            if(target==dlene) {
+                target.value = parseInt(target.value) + d;
+            } else if(target==dticke) {
+                target.value = Math.round(target.value*k + d * ttick *k)/k;
+			} else {
+				//階級幅主導
+				target.value = Math.round(target.value*k + d * ttick *k)/k;
+                //階級数主導
+                //target.value = Math.round(target.value*k + d * tick *k)/k;
+			}
+            break;
+        default:
+            return;
+    }
+
+    var min = parseFloat(dmine.value);
+    var max = parseFloat(dmaxe.value);
+    var tick = parseFloat(dticke.value);
+    if(tick < ttick) {
+        dticke.value = tick = ttick;
+    }
+    var len = parseFloat(dlene.value);
+    if(len%1) {
+        dlene.value = len = Math.ceil(len);
+    }
+    if(len<1) {
+        dlene.value = len = 1;
+    }
+
+    if(isNaN(min)||isNaN(max)||isNaN(tick)||isNaN(len)) return;
+    
+    //階級数主導
+    /*switch(target.id) {
+        case "dlen":
+            var newtick = Math.ceil((max*k - min*k)/len)/k;
+            var plen = Math.ceil((max*k-min*k)/(tick*k));
+            //console.log([newtick, tick, newtick*k - d, d])
+            if(newtick!=tick) {
+                tick = newtick;
+                len = Math.ceil((max*k-min*k)/(tick*k));
+            } else if(newtick*k - d > 0 && d && plen+d == len) {
+                tick = (newtick*k - d)/k;
+                len = Math.ceil((max*k-min*k)/(tick*k));
+            } else {
+                len = plen;
+            }
+            dlene.value = len;
+            dticke.value = tick;
+            break;
+        case "dmin":
+        case "dmax":
+            var len = Math.ceil((max*k - min*k)/(tick*k));
+            dlene.value = len;
+            break;
+    }*/
+    //階級幅主導
+    if(target != dlene) {
+        var len = Math.ceil((max*k - min*k)/(tick*k));
+        dlene.value = len;
+    } else {
+        var newtick = Math.ceil((max*k - min*k)/len)/k;
+        var plen = Math.ceil((max*k-min*k)/(tick*k));
+        //console.log([newtick, tick, newtick*k - d, d])
+        if(newtick!=tick) {
+            tick = newtick;
+            len = Math.ceil((max*k-min*k)/(tick*k));
+        } else if(newtick*k - d > 0 && d && plen+d == len) {
+            tick = (newtick*k - d)/k;
+            len = Math.ceil((max*k-min*k)/(tick*k));
+        } else {
+            len = plen;
+        }
+        dlene.value = len;
+        dticke.value = tick;
+    }
+    xf.save("fset", {min:min, max:max, len:len, tick:tick, ttick:ttick});
+    
+    makeftable(true);
+    Series.dispatchEvent({type:"fsetchange"});
+    //dmaxe.value = (min*k + tick*k*len)/k;
+}
+
+//
+function makehist(ev) {
+    var set = curset;
+    /*{min: parseFloat(document.getElementById("dmin").value),
+    max: parseFloat(document.getElementById("dmax").value),
+        tick: parseFloat(document.getElementById("dtick").value)};
+    
+    if(isNaN(set.min) || isNaN(set.max) || isNaN(set.tick)) {
+        var a = Series.list.reduce(function(p,v){ return p.concat(v.getValues()) }, []);
+        set = completesetting(a);//
+    }*/
+        
+    if(!hpanel) hpanel = new HistgramPanel();
+    viewpanel(hpanel);
+    hpanel.drawhist(set.tick, set.min, set.len);
+    
+    //var button = ev.currentTarget;
+    //if(button) button.style.display = "none";
+}
+    
+}
+
+// 四分位表
+function QuartilePanel() {
+    //public
+    this.makeqtable = makeqtable;
+    this.restore = restore;
+    
+    Series.addEventListener("appended", addseries);
+    Series.addEventListener("reset", reset);
+    
+    var self = this;
+    var qtable = document.getElementById("qtable");
+    this.dom = regstep(qtable);
+    addpanel("qpanel");
+    navigate(GUIDE_QUARTILEPANEL, this);
+    
+    setClickListenerById("reqallq", reqall);
+    setClickListenerById("makebox", makebox);
+
+	var vtypes = ["min", "q1", "median", "q3", "max", "qrange", "qdev"];
+    
+    var sers = [];
+function makeqtable() {
+    var i;
+    for(i=0; i<Series.list.length; i++) {
+        var ser = Series.list[i];
+        makeqtablefor(ser);
+    }
+}
+function restore() {
+    var type = xf.load("qmethod");
+    if(type) {
+        document.querySelector('#qselect [value="'+ type +'"]').checked = true;
+    }
+    makeqtable();
+}
+function addseries(ev) {
+    makeqtablefor(ev.value);
+}
+function reset() {
+    qselect.removeEventListener("change", makeqtable);
+    resetClickListenerById("reqallq", reqall);
+    resetClickListenerById("makebox", makebox);
+	//document.getElementById("reqallq").style.display = "";
+	resetalltablebutton(qtable);
+}
+
+function makeqtablefor(ser) {
+    var i, d;
+    
+    qselect.style.display = "block";
+    var type = qselect.querySelector('input:checked').value;
+    xf.save("qmethod", type);
+    
+    var title = ser.title;
+    var data = ser.getValues();
+    var pdig = getPointDigit(data)+(type=="interpolate"?2:1);
+    var q = getquartiles(data, type);
+    var d = q[3]-q[1];
+    var values = q.concat(d,d/2);//cleand(d,pdig+1), cleand(d/2,pdig+2));
+    
+    var index = ser.index;
+    var tr = qtable.querySelector("tr:first-of-type");
+    var ths = Array.prototype.slice.apply(tr.children);
+    //var tdi = ths.findIndex(function(th){ return th.dataset.index==index });
+    //for webkit bug: undefinedを返す時がある
+    var tdi = ths.findIndex(function(th){ return th.getAttribute("data-index")==index });
+    
+    if(tdi<0) {
+        ser.addEventListener("changed", redraw);
+        ser.addEventListener("titlechanged", titlechange);
+        ser.addEventListener("expired", expire);
+        qselect.addEventListener("change", makeqtable);
+		
+		var opened = false;
+		
+        var th = maketd(tr, title || "(系列)", null, "th");
+        th.dataset.index = index;
+        th.style.backgroundColor = seriescolor(ser.index);
+        for(i=0; i<vtypes.length; i++) {
+            tr = tr.nextElementSibling;
+            var v = ser.values[vtypes[i]];
+            if(v==undefined) {
+                var b = maketdb(tr, vtypes[i], ser);
+                b.setAttribute("data-value", cleand(values[i]));
+            } else {
+                maketdacquire(tr, v, vtypes[i], ser);
+				opened = true;
+            }
+        }
+		buttonvisible(qtable, opened)
+    } else {
+        tr.children[tdi].textContent = title || "(系列)";
+        query = 'td:nth-of-type('+ tdi +')';
+        for(i=0; i<values.length; i++) {
+            tr = tr.nextElementSibling;// console.log(i, tr)
+            var td = tr.children[tdi];
+            //if(ser.values[vtypes[i]]==undefined)
+            var v = cleand(values[i]);
+            if(td.firstElementChild) {
+                td.firstElementChild.setAttribute("data-value", v);
+            } else {
+                td.textContent = v;
+            }
+        }
+    }
+    
+}
+
+function redraw(ev) {
+    makeqtablefor(ev.target);
+}
+function titlechange(ev) {
+    var ser = ev.target;
+    var th = qtable.querySelector('[data-index="'+ ser.index +'"]');
+    th.textContent = ser.title;
+}
+function expire(ev) {
+    var i;
+    
+    var ser = ev.target;
+    ser.removeEventListener("changed", redraw);
+    ser.removeEventListener("titlechanged", titlechange);
+    ser.removeEventListener("expired", expire);
+    
+    var index = ser.index;
+    var tr1 = qtable.querySelector("tr:first-of-type");
+    var ths = Array.prototype.slice.apply(tr1.children);
+    var tdi = ths.findIndex(function(th){ return th.getAttribute("data-index")==index });
+    if(tdi<0) return;
+    
+    var trs = qtable.querySelectorAll("tr");
+    for(i=0; i<trs.length ;i++) {
+        var tr = trs[i];
+        tr.removeChild(tr.children[tdi]);
+    }
+}
+    
+function reqall(ev) {
+    var i, j;
+    for(i=0; i<Series.list.length; i++) {
+        var ser = Series.list[i];
+        for(j=0; j<vtypes.length; j++) {
+            ser.dispatchEvent({type:"got"+ vtypes[j]});
+        }
+    }
+}
+    
+function makebox(ev) {
+    if(!bpanel) bpanel = new BoxplotPanel();
+    viewpanel(bpanel);
+    
+    bpanel.drawbox();
+    //var button = ev.currentTarget;
+    //if(button) button.style.display = "none";
+}
+    
+}
+
+// 共通
+
+function maketdb(g, vtype, ser) {//console.log("maketdb",arguments)
+    var td = maketd(g, "");
+    var b = document.createElement("input");
+    b.type = "button";
+    b.value = "求める";
+    td.addEventListener("click", acquire);
+    td.appendChild(b);
+    ser.addEventListener("got"+vtype, setvalue);
+    return b;
+    
+    function setvalue(ev) {
+        if(!ev.failed) {
+            ev.target.removeEventListener(ev.type, setvalue);
+            
+            var v = b.getAttribute("data-value");
+            ser.values[vtype] = v;
+            td.replaceChild(document.createTextNode(v), b);
+            var ssers = xf.load("sers");
+            ssers[ser.index].values = ser.values;
+            xf.save("sers", ssers);
+			
+			var table = g.parentNode;//g = table>trの前提
+			if(!table.querySelector('[data-required] input')) {
+				showalltablebutton(table);
+			}
+        }
+    }
+    function acquire(ev) {
+        var event = "bar_show"+ vtype;
+        ser.dispatchEvent({type:event});
+    }
+}
+function maketdacquire(g, v, vtype, ser) {
+    var td = maketd(g, v);
+    td.addEventListener("click", acquire);
+    
+    function acquire(ev) {
+        var event = "bar_show"+ vtype;
+        ser.dispatchEvent({type:event});
+    }
+}
+
+function buttonvisible(table, opened) {
+	// 「表を完成させる」を使用しないし仮設定
+	if(opened) {
+		var button = table.parentNode.querySelector('button[id^="reqall"]');
+		//button.style.display = "inline";
+	}
+	if(!table.querySelector('[data-required] input')) {
+		showalltablebutton(table);
+	} else {
+		table.addEventListener("click", acquire);
+	}
+	function acquire(ev) {
+		if(ev.target instanceof HTMLInputElement) {
+			//button.style.display = "inline";
+			if(!table.querySelector('[data-required] input')) {
+				showalltablebutton(table);
+				table.removeEventListener("click", acquire);
+			}
+		}
+	}
+}
+function showalltablebutton(table) {
+	var es = table.parentNode.querySelectorAll('button[id^="make"]');
+	for(var i=0; i<es.length; i++) {
+		es[i].style.display = "inline";
+	}
+}
+function resetalltablebutton(table) {
+	var es = table.parentNode.querySelectorAll('button[id^="make"]');
+	for(var i=0; i<es.length; i++) {
+		es[i].style.display = "";
+	}
+}
+
+]]></script>
+<script><![CDATA[//step-bar.js 21.0111
+//statlook step-bar 2012 (c) 2017, 2020 aokih@icu.ac.jp
+
+///棒グラフ
+function BarchartPanel() {
+    //public
+    this.drawbar = drawbar;
+    this.restore = restore;
+
+    var WT1 = 2000, WT2 = 4000;
+    
+    Series.addEventListener("reset", reset);
+    var self = this;
+    var svg = document.getElementById("barchart");
+    this.dom = regstep(svg);
+    addpanel("barpanel");
+    navigate(GUIDE_BARCHARTPANEL, this);
+    
+    setClickListenerById("sortbar", dosort);
+    setClickListenerById("makestable", makestable);
+    //setClickListenerById("dividef", dodividef);
+    //setClickListenerById("divide2", dodivide2);
+    //setClickListenerById("divide4", dodivide4);
+    //setClickListenerById("previewhist", previewhist);
+    //setClickListenerById("previewbox", previewbox);
+    
+    var titlee = this.dom.querySelector(".title");
+    
+    var cw = 400, ch = 400;
+    
+    var curser;
+function drawbar(ser) {
+    
+    //console.log(curser != ser)
+    if(curser != ser) {
+        if(curser) expire();
+        ser.addEventListener("changed", draw);
+        ser.addEventListener("titlechanged", titlechange);
+        ser.addEventListener("expired", expire);
+        curser = ser;
+        xf.save("bar_active", ser.index);
+    }
+    
+    
+    //Series.addEventListener("qmethodchanged", dodivide4);
+    //qselect.addEventListener("change", redraw);
+    
+    if(ser.sorted) {
+        ser.setRank();
+    }
+    draw(null);
+    setShowListener(ser);
+}
+function setShowListener(ser) {
+    ser.addEventListener("bar_showcount", showcount);
+    ser.addEventListener("bar_showmin", showminmax);
+    ser.addEventListener("bar_showmax", showminmax);
+    ser.addEventListener("bar_showsum", showsum);
+    ser.addEventListener("bar_showave", showave);
+    ser.addEventListener("bar_showmedian", showmedian);
+    ser.addEventListener("bar_showq1", showq);
+    ser.addEventListener("bar_showq3", showq);
+    ser.addEventListener("bar_showqrange", showq);
+    ser.addEventListener("bar_showqdev", showq);
+}
+
+function restore() {
+    var i;
+    
+    var ssers = xf.load("sers");
+    
+    for(i=0; i<Series.list.length; i++) {
+        var ser = Series.list[i];
+        ser.sorted = ssers[ser.index].sort != undefined;
+        setShowListener(ser);
+    }
+    
+    var index = xf.load("bar_active");
+    if(index) {
+        drawbar(Series.getByIndex(index));
+        /*if(xf.load("bar_sorted")) {
+            dosort();
+        }*/
+    }
+}
+    
+function redraw(ev) {
+    if(!curser) return;
+    var ser = curser;
+ 
+    if(ser.length==0) {
+        ser.sorted = false;
+    }
+    if(ser.sorted) {
+        ser.setRank();
+    }
+    draw();
+}
+
+var getx;
+function draw() {
+    var ser = curser;
+
+    var i, j;
+    var r = minmax(ser.getValues());
+    
+    //initchartY(svg, cw, ch, r.max);
+    clearsvg(svg);
+	//svg.classList.remove("sorted");
+    
+    var e = svg.querySelector('.axis');
+    if(!e) {
+        var g = document.createElementNS(svgns, "g");
+        g.className.baseVal = "axis";
+        svg.appendChild(g);
+        
+        makeline(g, 0, 5, 0, -(ch+10));
+        makeline(g, 0, 5, cw, 5);
+    }
+    var ltick = getTick(r.max);
+    var cmin = r.min>=0 ? 0 : Math.floor(r.min/ltick)*ltick;
+    //**/var cmax = Math.ceil(r.max/ltick)*ltick; /*// 負数シフト
+    var cmax = r.max>=0 ? Math.ceil(r.max/ltick)*ltick : 0; // 0 折り返し */
+    var long = cmax-cmin;
+    var kx = cw/long;
+    
+    var labelg = svg.querySelector('.label');
+    if(!labelg) {
+        labelg = document.createElementNS(svgns, "g");
+        labelg.className.baseVal = "label";
+        svg.appendChild(labelg);
+        
+        var end = -cw, v;
+        var vmax = cmax==0 ? ltick/2 : r.max;
+        for(i=0; (v = cmin+ltick*i)<vmax; i++) {
+            var x = kx*(v - cmin);
+            makeline(labelg, x, 0, x, 5);
+            if(end+5 < x) {
+                end = makelabel(labelg, x, 5, v, "middle", 2).xend;
+            }
+        }
+    }
+    //
+
+//    var bw = cw/ser.length;
+//    var bh = ch/cmax;//svg.max;
+    var bw = ch/ser.length;
+    var bh = cw/long;//svg.max;
+    
+    var labelg = svg.querySelector('.label');
+
+    var g = document.createElementNS(svgns, "g");
+    g.className.baseVal = "series";
+    svg.appendChild(g);
+    
+    var color = seriescolor(ser.index, true);
+    titlee.textContent = ser.title;
+
+    /*var end = -cw;
+    for(i=0; i<ser.length; i++) {
+        var x = bw*i;
+        var y = bh * ser.data[i].v;
+        makerect(g, x + bw*0.1, - y, bw*0.8, y, color)
+        if(end+5 < x) {
+            end = makelabel(labelg, x+bw*0.5, 5, i+1, "middle", 2).xend;
+        }
+    }*/
+    
+    var bmin = bh*cmin;
+	getx = function(v) { return -bmin + bh * v; }
+	
+    for(i=0; i<ser.length; i++) {
+        var w = bh * ser.getValue(i);
+        var y = bw * (ser.sorted? ser.getRelAt(i,"rank") : i);
+        //**/var bar = makerect(g, 0, -ch+(y + bw*0.1), w - bmin, bw*0.8, color); /*// 負数シフト
+        if(w>=0) { // 0 折り返し
+            var bar = makerect(g, -bmin, -ch+(y + bw*0.1), w, bw*0.8, color);
+        } else {
+            var bar = makerect(g, -bmin + w, -ch+(y + bw*0.1), -w, bw*0.8, color);
+        }//*/
+        ser.setRelAt(i,"bar",bar);
+	}
+	
+	drawitemlabel(ser, labelg, bw, bh);
+	
+	var btnsort = document.getElementById("sortbar");
+	var ytitle = svg.querySelector(".ytitle");
+	btnsort.textContent = ser.sorted? "元の順にもどす":"小さい順に並べる";
+	ytitle.textContent = ser.sorted? "順位":"";
+	//if(ser.sorted) svg.classList.add("sorted");
+
+    /*if(divg) {
+        if(ser.sorted) {
+            if(divg.q4) return showq({target:ser});
+        }
+        removeoverlap();
+    }*/
+    if(divg) {
+        svg.appendChild(divg);
+    }
+    
+}
+function drawitemlabel(ser, labelg, bw, bh) {
+	var i;
+
+	var ntick = getTick(ser.length);
+	if(!bw) {
+		var itemlabels = labelg.querySelectorAll('.ylabel');
+	}
+	for(i=0; i<ser.length; i += ntick) {
+		var y = bw * i;
+		var labeltext = ser.sorted? enclosednum(i+1) : ser.getRelAt(i, "label") || "";
+		if(bw) {
+			makelabel(labelg, -5, -ch + y + bw*0.5 -2, labeltext, null, 1, "ylabel");
+		} else {
+			itemlabels[i/ntick].textContent = labeltext;
+		}
+	}
+}
+	
+	
+function titlechange(ev) {
+    var ser = ev.target;
+    svg.querySelector(".title").textContent = ser.title;
+}
+function expire(ev) {
+    if(divg) removeoverlap();
+    
+    curser.removeEventListener("changed", redraw);
+    curser.removeEventListener("titlechanged", titlechange);
+    curser.removeEventListener("expired", expire);
+    curser = undefined;
+    /*if(ev)*/ clearsvg(svg, 'g,.label,.axis'); //viewpanel(self, false);
+}
+
+function dosort(ev) {
+    var i;
+    var ser = curser;
+    
+    //var divpreview = document.getElementById("divpreview");
+    //divpreview.style.display = "";
+	
+	var btnsort = document.getElementById("sortbar");
+	var ytitle = svg.querySelector(".ytitle");
+
+	ser.sorted = !ser.sorted;
+
+	btnsort.textContent = ser.sorted? "元の順にもどす":"小さい順に並べる";
+	ytitle.textContent = ser.sorted? "順位":"";
+	//if(ser.sorted) svg.classList.add("sorted");
+	//else svg.classList.remove("sorted");
+
+	var bar = ser.getRelAt(0,"bar")
+	var bw = bar.height.baseVal.value/0.8;
+	if(ser.sorted) {
+		ser.setRank();
+        for(i=0; i<ser.length; i++) {
+            var bar = ser.getRelAt(i,"bar")
+            var rank = ser.getRelAt(i,"rank");
+            //bar.setAttribute("data-rank", rank);
+            var y = bw*rank;
+            bar.y.baseVal.value = -ch+(y + bw*0.1);
+        }
+    } else {
+        for(i=0; i<ser.length; i++) {
+            var bar = ser.getRelAt(i,"bar")
+            var y = bw*i;
+            bar.y.baseVal.value = -ch+(y + bw*0.1);
+        }
+        if(divg) removeoverlap();
+    }
+	
+	var labelg = svg.querySelector('.label');
+	drawitemlabel(ser, labelg);
+	
+	/*var es = labelg.querySelectorAll('[data-itemindex]');
+	for(i=0; i<es.length; i++) {
+		var index = parseInt(es[i].getAttribute("data-itemindex"));
+		if(ser.sorted)
+			index = ser.findIndexRel("rank", index);
+		es[i].textContent = enclosednum(index +1);
+	}*/
+	
+    //barsorted = !barsorted;
+    if(ev) {
+        //if(barsorted) xf.save("bar_sorted", 1);
+        //else xf.remove("bar_sorted");
+        var ssers = xf.load("sers"), sser = ssers[ser.index];
+        if(ser.sorted) sser.sort = 1;
+        else delete sser.sort;
+        xf.save("sers", ssers);
+    }
+
+}
+function dodividef() {
+    showfrequency({target:curser});
+    
+    var preview = document.getElementById("previewhist");
+    preview.style.display = "";
+}
+function dodivide2() {
+    showmedian({target:curser});
+}
+function dodivide4() {
+    qselect.style.display = "block";
+    showq({target:curser, unhide:true});
+    
+    var preview = document.getElementById("previewbox");
+    preview.style.display = "";
+}
+    
+function showvalue(x, y, v, color, align, className, t) {
+    if(t==undefined) t = WT1;
+    if(t instanceof SVGGElement) {
+        var parent = t; t=0;
+    } else {
+        var parent = divg;
+    }
+    var label = makelabel(parent, x, y, v, align || "middle", 1, className || "bar_overlapvalue");
+    if(color) label.style.fill = color;
+    if(t) {
+        setTimeout(endshow, t, label);
+    }
+}
+function showerr(serev, msg) {
+    showvalue(cw/2, -ch/2, msg, null, null, "bar_err");
+    if(!serev || !serev.type) return;
+    var type = serev.type.replace("bar_show", "got");
+    serev.target.dispatchEvent({type:type, failed:true});
+    setTimeout(removeoverlap, WT1);
+    /*var ev = document.createEvent("CustomEvent");
+    ev.initCustomEvent("complete", false, false, {failed: true});
+    serev.button.dispatchEvent(ev);*/
+
+}
+function pointvalue(ser, i, t) {
+    var bar = ser.getRelAt(i,"bar");
+	var x = bar.x.baseVal.value;
+	if(ser.getValue(i)>=0)
+		x += bar.width.baseVal.value;
+    var y = bar.y.baseVal.value + bar.height.baseVal.value/2;
+    var r = bar.height.baseVal.value/0.8 * 1.5;
+    var c = makecircle(divg, x, y, Math.min(25, r), "rgba(255,165,0,0.5)");
+    if(t) setTimeout(endshow, t, c);
+    return {x:x, y:y};
+}
+function willcomplete(serev, t) {
+    if(!serev.type) return;
+    var ser = serev.target;
+    var type = serev.type.replace("bar_show", "got");
+    setTimeout(function(){ser.dispatchEvent({type:type})}, t);
+    /*var ev = document.createEvent("CustomEvent");
+    ev.initCustomEvent("complete", false, false, {});
+    setTimeout(function(){button.dispatchEvent(ev)}, t);*/
+}
+function endshow(e) {
+    e.parentNode.removeChild(e);
+}
+function endopaque(e) {
+    e.style.opacity = "";
+}
+var divg;
+function getoverlap(type, force) {
+    if(divg) {
+        if(divg._opaque) {
+            divg._opaque.style.opacity = "";
+        }
+        if(divg.parentNode) {
+            divg.parentNode.removeChild(divg);
+            if(divg._type == type && !force) return divg = null;
+        }
+    }
+    divg = document.createElementNS(svgns, "g");
+    divg._type = type;
+    svg.appendChild(divg);
+    return divg;
+}
+function removeoverlap() {
+    return divg && getoverlap(divg._type);
+}
+    
+function showcount(ev) {
+    var ser = ev.target;
+    if(curser!=ser) drawbar(ser);
+    var divg = getoverlap(ev.type, viewpanel(barpanel) || curser!=ser);
+    if(!divg) return;
+    
+    var x = cw/2 + 0.1*cw;
+    makeline(divg, x, -ch, x, 0, "bar_divarrow");
+    showvalue(x+5, -ch/2-20, "["+ ser.length +"]", null/*seriescolor(ser.index, true)*/, "start", null, divg);
+    willcomplete(ev, 0);
+}
+function showminmax(ev) {
+    var ser = ev.target;
+    if(curser!=ser) drawbar(ser);
+    var divg = getoverlap(ev.type, viewpanel(barpanel) || curser!=ser);
+    if(!divg) return;
+    
+    if(ser.length==0) return showerr(ev, "データがありません");
+    var f = {bar_showmin:Math.min, bar_showmax:Math.max}[ev.type];
+    var align = {bar_showmin:"start", bar_showmax:"end"}[ev.type];
+    var v = f.apply(null, ser.getValues()), x, y;
+	var p = pointvalue(ser, ser.findIndex(v));//, WT1);
+    showvalue(p.x, 25, v, null/*seriescolor(ser.index, true)*/, align, null, divg);
+    makeline(divg, p.x, -ch, p.x, 20, "bar_vline");
+    willcomplete(ev, 0);
+}
+function showsum(ev) {
+    var ser = ev.target;
+    if(curser!=ser) drawbar(ser);
+    var divg = getoverlap(ev.type, viewpanel(barpanel) || curser!=ser);
+    if(!divg) return;
+    
+    var data = ser.getValues();
+    var s = getsum(data);
+    if(ser.length>0) {
+        var max = Math.max.apply(null, data);
+        var bar = ser.getRelAt(ser.findIndex(max),"bar");
+        bar.parentNode.style.opacity = 0.25;
+        divg._opaque = bar.parentNode;
+        //setTimeout(endopaque, WT1, bar.parentNode);
+        var bw = bar.height.baseVal.value;
+        var bh = bar.width.baseVal.value;
+        var area = bw*bh/max*s;
+        var l = Math.sqrt(area);
+        makerect(divg, cw/2-l/2, -ch/2-l/2, l, l, seriescolor(ser.index, true));
+    }
+    showvalue(cw/2, -ch/2, cleand(s), null/*seriescolor(ser.index, true)*/, null, null, divg);
+    willcomplete(ev, 0);
+}
+function showave(ev) {
+    var ser = ev.target;
+    if(curser!=ser) drawbar(ser);
+    var divg = getoverlap(ev.type, viewpanel(barpanel) || curser!=ser);
+    if(!divg) return;
+    
+    if(ser.length==0) return showerr(ev, "データがありません");
+    
+    var data = ser.getValues();
+    var s = getaverage(data);
+    var max = Math.max.apply(null, data);
+    var bar = ser.getRelAt(ser.findIndex(max),"bar");
+    bar.parentNode.style.opacity = 0.25;
+    divg._opaque = bar.parentNode;
+    var bw = bar.height.baseVal.value/0.8;
+    var bh = bar.width.baseVal.value;
+    var h = bh/max*s, i;
+    var color = seriescolor(ser.index, true);
+    for(i=0;i<ser.length;i++) {
+        var y = bw*i + bw*0.1;
+        makerect(divg, cw/2-h/2, -ch+y, h, bw*0.8, color);
+    }
+    y = -ch/2;
+    makeline(divg, cw/2-h/2, y, cw/2+h/2, y, "bar_divarrow");
+    //setTimeout(endopaque, WT1, bar.parentNode);
+    showvalue(cw/2, y +20, cleand(s), null/*seriescolor(ser.index, true)*/,null,null, divg);
+    willcomplete(ev, 0);
+}
+function showfrequency(ev) {
+    drawfrequency(curser, true);
+}
+function previewhist(ev) {
+    drawfrequency(curser, false, true);
+}
+function drawfrequency(ser, value, hist) {
+    var divg = getoverlap("drawfreq");
+    if(!divg) return;
+    
+    if(curser!=ser) drawbar(ser);
+    if(ser.length==0) return showerr(ev, "データがありません");
+    
+    //if(!ser.sorted)
+    
+    var i;
+    var data = ser.getValues();
+    var max = Math.max.apply(null, data);
+    var s = recommendsetting(data);
+    
+    var maxi = ser.findIndex(max);
+    var maxv = ser.getValue(maxi);
+    var bar = ser.getRelAt(maxi, "bar");
+    var kx = bar.width.baseVal.value/maxv;
+    
+    var carr = countup(data, s.min, s.tick, s.len).arr;
+    var dwh = kx*s.tick/2;
+    for(i=0; i<s.len; i++) {
+        var x = kx*(s.min+s.tick*i);
+        makeline(divg, x, -ch, x, 0, "bar_divarrow");
+        if(!hist) showvalue(x+dwh - cw*0.005, -ch*0.1, "["+ carr[i] +"]", null, "middle", "bar_freqn");
+    }
+    var x = kx*(s.min+s.tick*i);
+    makeline(divg, x, -ch, x, 0, "bar_divarrow");
+    
+    if(hist) {
+        bar.parentNode.style.opacity = 0.25;
+        setTimeout(endopaque, WT1, bar.parentNode);
+        
+        var rangew = kx * s.tick, bw = bar.height.baseVal.value/0.8;
+        for(i=0; i<carr.length; i++) {
+            var rangex = kx *(s.min + s.tick*i) - rangew*0.1;
+            var bh = bw * carr[i];
+            makerect(divg, rangex, -bh , rangew, bh, "rgba(255,165,0,0.8)");
+        }
+        
+    } else {
+        var rangew = kx * s.tick, bw = bar.height.baseVal.value/0.8;
+        for(i=0; i<data.length; i++) {
+            //pointvalue(ser, i);
+            var rangex = kx * (s.min + Math.floor((ser.getValue(i)-s.min)/s.tick) * s.tick) - rangew*0.1;
+            var by = ser.getRelAt(i,"bar").y.baseVal.value - bw*0.1;
+            makerect(divg, rangex, by, rangew, bw, "rgba(255,165,0,0.5)");
+        }
+    }
+    
+}
+    
+function showmedian(ev) {
+    var ser = ev.target;
+    if(curser!=ser) drawbar(ser);
+    var divg = getoverlap(ev.type, viewpanel(barpanel) || curser!=ser);
+    if(!divg) return;
+    
+    if(ser.length==0) return showerr(ev, "データがありません");
+    if(!ser.sorted) return showerr(ev, "データを小さい順に並べかえてください");
+    
+    var maxi = ser.findIndexRel("rank", ser.length-1);
+    var bar = ser.getRelAt(maxi, "bar");
+    var bw = bar.height.baseVal.value/0.8;
+    //var kx = bar.width.baseVal.value / ser.getValue(maxi);
+    //var g = document.createElementNS(svgns, "g");
+    //svg.appendChild(g);
+    
+    //var divbw = bw*(2 - ser.length%2);
+    //makerect(divg, 0, -ch/2-divbw/2, cw, divbw, "rgba(255,165,0,0.5)");
+    var cboff = bw*(ser.length%2)/2;
+    if(cboff) {
+        //var cbh = Math.min(cw*0.05, bw);
+        //makerect(divg, x -cbh/2, -ch/2 -cboff, cbh, bw, "rgba(255,165,0,0.5)");
+        makerect(divg, 0, -ch/2 -cboff, cw, bw, "rgba(255,165,0,0.5)");
+    } else {
+        makeline(divg, 0, -ch/2, cw, -ch/2, "bar_divline");
+    }
+    
+    var h = Math.floor(ser.length/2);
+    //var x = kx*getmedian(ser.getValues()) + 0.1*cw;//0.8*cw;
+	var x = getx(getmedian(ser.getValues())) + 0.1*cw;
+	
+    showvalue(x+5, -ch-10 -cboff/2 +ch/4, "["+ h +"]",null,"start",null,divg);
+    showvalue(x+5, -ch-10 +cboff/2 +3*ch/4, "["+ h +"]",null,"start",null,divg);
+if(ev.type) {
+    if(ser.length%2) {
+        var i = ser.findIndexRel("rank", h);
+		var p = pointvalue(ser, i);//, WT1);
+        showvalue(p.x, 25, ser.getValue(i), null, "middle", null, divg);
+        makeline(divg, p.x, -ch, p.x, 20, "bar_vline");
+        
+        //setTimeout(endshow, WT1, g);
+        willcomplete(ev, WT1);
+    } else {
+        var il = ser.findIndexRel("rank", h-1);
+        var pl = pointvalue(ser, il, WT1), vl = ser.getValue(il);
+        showvalue(pl.x, pl.y-7 -40, vl, null, "end");
+        var ih = ser.findIndexRel("rank", h);
+        var ph = pointvalue(ser, ih, WT1), vh = ser.getValue(ih);
+        showvalue(ph.x, ph.y-7 +20, vh, null, "start");
+        var p = {x:(pl.x+ph.x)/2, y:(pl.y+ph.y)/2}; v = (vl+vh)/2;
+        if(ev.type) setTimeout
+           (function(x, y, v){
+            var c = makecircle(divg, x, y, Math.min(25,bw*1.5), "rgba(255,165,0,0.5)");
+            //setTimeout(endshow, WT1, c);
+            showvalue(x, 25, v, null, "middle", null, divg);
+            makeline(divg, x, -ch, x, 20, "bar_vline");
+            willcomplete(ev, 0);
+            }, WT1, p.x, p.y, v);
+        
+        //setTimeout(endshow, WT2, g);
+    }
+    //var x = p.x;
+} else {
+    /*var data = ser.getValues();
+    for(i=0; i<data.length; i++) {
+        pointvalue(ser, i);
+    }*/
+    //var x = 0.8*cw;
+    //setTimeout(endshow, WT1, g);
+    willcomplete(ev, 0);
+}
+    makeline(divg, x, -ch, x, -ch/2 -cboff, "bar_divarrow");
+    makeline(divg, x, -ch/2 +cboff, x, 0, "bar_divarrow");
+
+}
+function showq(ev) {
+    var ser = ev.target;
+    if(curser!=ser) drawbar(ser);
+    var divg = getoverlap(ev.type, viewpanel(barpanel) || curser!=ser || ev.unhide);
+    if(!divg) return;
+    
+    if(ser.length==0) return showerr(ev, "データがありません");
+    if(!ser.sorted) return showerr(ev, "データを小さい順に並べかえてください");
+
+    var qn = !ev.type || isFinite(ev.type.substr(-1));
+    
+    var i;
+    var type = qselect.querySelector('input:checked').value;
+    
+    var n = ser.length;
+    var data = ser.getValues();
+    var qv = getquartiles(data, type);
+    var qi = new Array(5);
+    qi[0] = 0; qi[4] = n-1; qi[2] = qi[4]/2;
+    
+    if(type=="interpolate") {//Interpolation method using the N-1 basis (表計算)
+        for(i=0;i<5;i++) {
+            var t = (n-1)*i/4, tt = t-Math.floor(t);
+            qi[i]=(1-tt)*Math.floor(t) + tt*Math.ceil(t);
+        }
+    } else {
+        switch(type || "tukey") {
+            case "moor_mccabe"://Moor & McCabe's hinge (教科書)
+                var h = Math.floor(n/2), q = Math.ceil(h/2);
+                break;
+            case "tukey": //Tukey's hinges
+                var h = Math.ceil(n/2), q = Math.ceil(h/2);
+                break;
+        }
+        //qi[0] = -0.5;
+        qi[1] = ((q-1) + (h-q))/2;
+        qi[3] = ((n-h+q-1) + (n-q))/2;
+        //qi[4] = n-0.5;
+    }
+    if(qn) {
+        var vi = {bar_showq1:qi[1], bar_showq3:qi[3]}[ev.type];
+        var v = {bar_showq1:qv[1], bar_showq3:qv[3], undefined:qv[4]*0.8}[ev.type];
+    }
+
+    //var g = document.createElementNS(svgns, "g");
+    //svg.appendChild(g);
+    
+    var bar = ser.getRelAt(ser.findIndexRel("rank", n-1),"bar");
+    var bw = bar.height.baseVal.value/0.8;
+    //var kx = bar.width.baseVal.value / qv[4];
+	
+    var t = (ev.type && qn && qi[1]%1)? WT2:WT1;
+
+    var y = 0, qii=0, shiftx = 0;
+    if(type=="interpolate") {
+        y += bw/2;
+        makeline(divg, 0, -ch + y, cw, -ch + y, "bar_divline");
+    }
+    var lx = 0.8*cw;
+    for(i=1; i<5; i++) {
+        var prey = y, prei = qii;
+        if(type=="interpolate") {
+            var qii = qi[i];
+            var y = bw*(qii+0.5);
+            makeline(divg, 0, -ch + y, cw, -ch + y, "bar_divline");
+        } else {
+            var qii = Math.floor(0.5+qi[i]);
+            var y = bw*qii;
+            if(i<4) {
+                if(type=="moor_mccabe") {
+                    if(qi[i]%1==0) {
+                        makerect(divg, 0, -ch + y, cw, bw, "rgba(255,165,0,0.5)");
+                    } else {
+                        makeline(divg, 0, -ch + y, cw, -ch + y, "bar_divline");
+                    }
+                } else if(type=="tukey") {
+                    if(qi[i]%1==0) {
+                        makeline(divg, 0, -ch + y, cw, -ch + y, "bar_divline");
+                        y += bw; qii++;
+                        //console.log([shiftx , qi[i-2]])
+                        if(!shiftx) shiftx = cw*0.05;
+                    }
+                    makeline(divg, 0, -ch + y, cw, -ch + y, "bar_divline");
+                }
+            } else {
+                y += bw; qii++;
+            }
+        }
+        //if(qn || i<2 || 3<i) {
+            makeline(divg, lx+ shiftx, -ch + prey, lx+ shiftx, -ch + y, "bar_divarrow");
+            showvalue(lx+ shiftx, -ch -5 +(prey + y)/2, "["+ (qii-prei) +"]", null, null, null, divg);
+        //}
+        if(qi[i]%1==0) {
+            if(type=="moor_mccabe") { y += bw; qii++; }
+            else if(type=="tukey") { y -= bw; qii--; shiftx = -shiftx; }
+        } else {
+            if(type=="tukey") { shiftx = 0; }
+        }
+        if(!qn && i==1) i++;
+    }
+if(!ev.type) {
+    /*for(i=0; i<data.length; i++) {
+        pointvalue(ser, i);
+    }*/
+    //setTimeout(endshow, WT1, g);
+    return;
+}
+    
+if(qn) {// q1, q3
+	var i = {bar_showq1:1, bar_showq3:3}[ev.type];
+    var vi = {bar_showq1:qi[1], bar_showq3:qi[3]}[ev.type];
+    var v = {bar_showq1:qv[1], bar_showq3:qv[3]}[ev.type];
+    
+	var x = getx(v);
+	var y = bw*(0.5+vi);
+    if(qi[1]%1==0) {
+        var bi = ser.findIndexRel("rank", vi);
+		var p = pointvalue(ser, bi);//, WT1);
+        showvalue(p.x, 25, ser.getValue(bi), null, "start", null, divg);
+        makeline(divg, p.x, -ch, p.x, 20, "bar_vline");
+		//showvalue(x, -ch+y+5 - 50, "第"+i+"四分位数" , null, "middle", null, divg);
+        willcomplete(ev, 0);
+    } else {
+        var bi = ser.findIndexRel("rank", Math.floor(vi));
+        var p = pointvalue(ser, bi, WT1);
+        showvalue(p.x, p.y-7 -30, ser.getValue(bi), null, "end", null, WT2);
+        var bi = ser.findIndexRel("rank", Math.ceil(vi));
+        var p = pointvalue(ser, bi, WT1);
+        showvalue(p.x, p.y-7 +10, ser.getValue(bi), null, "start", null, WT2);
+        
+        ev.type && setTimeout
+           (function(x, y, v){
+            var c = makecircle(divg, x, -ch+y, Math.min(25,bw*1.5), "rgba(255,165,0,0.5)");
+            //setTimeout(endshow, WT1, c);
+            showvalue(x, 25, v, null, "middle", null, divg);
+			//showvalue(x, -ch+y+5 - 50, "第"+i+"四分位数" , null, "middle", null, divg);
+            makeline(divg, x, -ch, x, 20, "bar_vline");
+            willcomplete(ev, 0);
+            }, WT1, x, y, v);
+    }
+    //setTimeout(endshow, t, g);
+
+} else { // qrange, qdev
+    var t =WT1;
+	
+    var lx = 0.8*cw;
+    /*var prey = bw*(0.5+qi[1]);
+    var y = bw*(0.5+qi[3]);
+    var v = qi[3]-qi[1];
+    //makeline(g, lx, -ch + prey, lx, -ch + y, "bar_divarrow");
+    showvalue(lx, -ch -20 + (prey + y)/2, "["+ v +"]", null, null, null, divg);
+    
+    if(ev.type=="bar_showqdev") {
+        y = (prey + y)/2;
+        v /= 2;
+        makeline(divg, x, -ch + prey, x, -ch + y, "bar_divarrow");
+    }*/
+    
+    var ps = [];
+    
+    if(ev.type) {
+        for(i=1; i<=3; i+=2) {
+            var vi = qi[i], v = qv[i];
+			var x = getx(v);
+            var y = bw*(0.5+vi);
+			var c = makecircle(divg, x, -ch+y, Math.min(25,bw*1.5), "rgba(255,165,0,0.5)");
+            //setTimeout(endshow, WT2, c);
+            ps[i] = {x:x, y:y};
+			showvalue(x, -ch+y+5 - 50, "第"+i+"四分位数" , null, "middle", "bar_overlapvalue word", divg);
+		}
+    }
+    
+    ev.type && setTimeout
+       (function(){
+        //var g = document.createElementNS(svgns, "g");
+        //svg.appendChild(g);
+        
+        for(i=1; i<=3; i+=2) {
+            var p = ps[i];
+            makeline(divg, p.x, -ch + p.y, p.x, 0, "bar_vline");
+            //var vi = qi[i], v = qv[i];
+			//var x = getx(v);//kx * v;
+            //var y = bw*(0.5+vi);
+            //showvalue(x, -ch+y+5 - 50, "Q"+i , null, "middle", null, divg);
+        }
+        
+        var y = 0.8*ch, x2 = ps[3].x;
+        var x = (ps[1].x + x2)/2;
+        var d = qv[3]-qv[1];
+        makeline(divg, ps[1].x, -ch + y, ps[3].x, -ch + y, "bar_divarrow");
+        
+        if(ev.type!="bar_showqdev") {
+            showvalue(x, -ch*0.15, cleand(d), null, "middle", null, divg);
+        } else {
+            showvalue(x, -ch*0.15, cleand(d), null, "middle", null, WT1);
+            ev.type && setTimeout
+               (function(x, y){
+                 x2 = x;
+                 x = (ps[1].x + x)/2;
+                 d /= 2;
+                 showvalue(x, -ch*0.15, cleand(d), null, "middle", null, divg);
+                 makeline(divg, x2, -ch, x2, 0, "bar_vline");
+                 y = 0.82*ch;
+                 makeline(divg, ps[1].x, -ch + y, x2, -ch + y, "bar_divarrow");
+                 }, WT1, x, y);
+        }
+            
+        willcomplete(ev, 0);
+        //setTimeout(endshow, WT1, g);
+    }, ev.type=="bar_showqdev"? 0 : WT1);
+    
+    //setTimeout(endshow, WT1, g);
+}
+    
+}
+
+function reset() {
+    removeoverlap();
+
+    resetClickListenerById("sortbar", dosort);
+    resetClickListenerById("makestable", makestable);
+    
+    qselect.removeEventListener("change", redraw);
+}
+    
+//
+function previewbox(ev) {
+    var divg = getoverlap("drawfreq");
+    if(!divg) return;
+    
+    var ser = curser;
+    /*if(curser!=ser)*/ drawbar(ser);
+    if(ser.length==0) return showerr(null, "データがありません");
+    if(!ser.sorted) return showerr(null, "データを小さい順に並べかえてください");
+    
+    var i, j;
+    
+    var type = qselect.querySelector('input:checked').value;
+    var data = ser.getValues();
+    var qv = getquartiles(data, type);
+
+    var bar = ser.getRelAt(ser.findIndexRel("rank", ser.length-1),"bar");
+    //var kx = bar.width.baseVal.value/qv[4];
+
+    bar.parentNode.style.opacity = 0.25;
+    setTimeout(endopaque, WT1, bar.parentNode);
+
+    var g = document.createElementNS(svgns, "g");
+    svg.appendChild(g);
+    
+    for(i=0; i<5; i++) {
+		var x = getx(qv[i]);//kx * qv[i];
+		makeline(g, x, -ch, x, 0, "bar_vline");
+    }
+    
+    var y = seriesw = ch/2, boxw = 50, color = "rgba(255,165,0,0.8)";
+    var cmin = qv[0];
+    for(j=0; j<1; j++) {
+        
+        var sg = document.createElementNS(svgns, "g");
+        sg.className.baseVal = "series box";
+        g.appendChild(sg);
+        
+        var y = ch - ch*0.625;
+        for(i=1; i<=2; i++) {
+			var x = getx(qv[(i-1)*4]);//kx*qv[(i-1)*4];
+			makeline(sg, x, -y - boxw/2, x, -y + boxw/2)
+            makeline(sg, x, -y, getx(qv[i*2-1]/*kx*qv[i*2-1]*/), -y);
+			//makerect(sg, kx*qv[i], -y -boxw/2, kx*(qv[i+1]-qv[i]), boxw, color);
+			makerect(sg, getx(qv[i]), -y -boxw/2, getx(qv[i+1])-getx(qv[i]), boxw, color);
+        }
+    }
+    
+    
+    setTimeout(endshow, WT1, g);
+}
+
+function makestable(ev) {
+    if(!spanel) spanel = new SummaryPanel();
+    viewpanel(spanel);
+    spanel.makesummary(curser);
+    
+    //completesetting(curser.getValues());
+}
+
+}
+]]></script>
+<script><![CDATA[//step-hist.js 22.0104
+//statlook step-hist 2012 (c) 2017, 2022 aokih@icu.ac.jp
+//2022 bug fixed
+
+///ヒストグラム
+function HistgramPanel() {
+    //public
+    this.drawhist = drawhist;
+    this.restore = restore;
+    
+    Series.addEventListener("reset", reset);
+    Series.addEventListener("fsetchange", redraw);
+    var self = this;
+    addpanel("hpanel");
+    
+    var svg = document.getElementById("histchart");
+    this.dom = regstep(svg);
+    navigate(GUIDE_HISTGRAMPANEL, this);
+
+    var sersw = this.dom.querySelector('.serswitch');
+    sersw.addEventListener("change", switchser)
+    var btnMulti = document.getElementById('hist_multi');
+    btnMulti.addEventListener("change", multser);
+
+    var btnPolygon = document.getElementById('hist_polygon');
+    btnPolygon.addEventListener("change", shapechange);
+    
+    svg.addEventListener("mousedown", tstart);
+    svg.addEventListener("touchstart", tstart);
+    //svg.addEventListener("gesturestart", gstart);
+    
+    var dx;
+    function tstart(ev) {
+        ev.preventDefault();
+
+        document.body.addEventListener("mousemove", tmove);
+        document.body.addEventListener("mouseup", tend);
+        svg.addEventListener("touchmove", tmove);
+        svg.addEventListener("touchend", tend);
+        var touch = ev.touches? ev.touches[0] : ev;
+        dx = touch.pageX;
+    }
+    function tmove(ev) {
+        var touch = ev.touches? ev.touches[0] : ev;
+        var x = touch.pageX;
+        var v = tick*len * (x - dx)/400;
+        drawhist(tick, min - v, len, cmax);
+        dx = x;
+    }
+    function tend(ev) {
+        if(ev.touches && ev.touches.length>0) return;
+        document.body.removeEventListener("mousemove", tmove);
+        document.body.removeEventListener("mouseup", tend);
+        svg.removeEventListener("touchmove", tmove);
+        svg.removeEventListener("touchend", tend);
+    }
+/*    var initick, inilen;
+    function gstart(ev) {
+        ev.preventDefault();
+        svg.removeEventListener("touchmove", tmove);
+        svg.removeEventListener("touchend", tend);
+
+        svg.addEventListener("gesturechange", gesture);
+        svg.addEventListener("gestureend", gend);
+        initick = tick; inilen = len;
+    }
+    function gesture(ev) {
+        ev.preventDefault();
+        drawhist(initick * ev.scale, min, Math.max(1,Math.round(inilen/ev.scale)), cmax);
+        console.log(initick * ev.scale)
+    }
+    function gend(ev) {
+        svg.removeEventListener("gesturechange", gesture);
+        svg.removeEventListener("gestureend", gend);
+    }*/
+    
+function drawhist(tick, min, len, cmax, type) {
+    this.min = min;
+    this.tick = tick;
+    this.len = len;
+    this.cmax = cmax;
+    
+    var i;
+    var d = Series.list.reduce(function(p,v){ return Math.max(p,v.d)}, 0);
+    //var k = Math.pow(10,d);
+    //var len = Math.ceil((max-min)/tick);
+    var cmax = 0;
+    for(i=0; i<Series.list.length; i++) {
+        var data = Series.list[i].getValues();
+        var result = countup(data, min, tick, len, d);
+        cmax = Math.max(cmax, Math.max.apply(this, result.arr));
+    }
+    
+    for(i=0; i<Series.list.length; i++) {
+        drawhistfor(Series.list[i], tick, min, len, cmax, type);
+    }
+}
+function restore() {
+    
+    var set = xf.load("hist_set");
+    if(set) {
+        if(set.type=="polygon") {
+            btnPolygon.checked = true;
+        }
+        drawhist(set.tick, set.min, set.len, set.cmax, set.type);
+    }
+    var vsers = xf.load("hist_vsers");
+    if(vsers) {
+        if(activesers.length>0) {
+            var index = activesers.shift();
+            var target = document.getElementById('hist_vser'+ index);
+            target.checked = false;
+            target.nextElementSibling.style.backgroundColor = seriescolor(index);
+            var g = svg.querySelector('[data-index="'+ index +'"]');
+            g.style.display = "none";
+        }
+        for(var i=0; i<vsers.length; i++) {
+            var index = vsers[i];
+            var target = document.getElementById('hist_vser'+ index);
+            target.checked = true;
+            target.nextElementSibling.style.backgroundColor = seriescolor(index, true);
+            var g = svg.querySelector('[data-index="'+ index +'"]');
+            g.style.display = "";
+        }
+        activesers = vsers;
+    }
+    if(xf.load("hist_multi")) {
+        btnMulti.checked = true;
+    }
+}
+    
+    var curset, sers = {}, outls, outrs;
+function drawhistfor(ser, tick, min, len, cmax, type) {
+    var i, j;
+
+    var cw = 400, ch = 400;
+
+    var data = ser.getValues();
+    
+    //var pdig = Math.max(getPointDigit(data), (tick+".").split(".")[1].length);
+    var pdig = ser.d;
+    var k = Math.pow(10,pdig);
+    if(cmax<5) cmax = 5;
+    
+    var items = data.concat().sort(numericcmp);
+    
+    var max = (min*k + tick*k*len)/k;
+    //var r = {min:min, max:max, tick:tick, len:len};
+    //var r = {min:min, max:max, tick:tick, len:(max*k-min*k)/(tick*k)};
+    //console.log(r);
+    //var r = getRange(items[0], items[items.length-1], tick, pdig);
+    //var r = getRange(min!=undefined? min:items[0], max!=undefined? max:items[items.length-1], tick, pdig);
+    //console.log(r);
+    
+    var cmargin = cw/(len+2);
+    var bw = cw/(len+2);
+    
+    if(!sers[ser.index]) {
+        Series.addEventListener("titlechanged", gtitlechange);
+        gtitlechange();
+        Series.addEventListener("appended", addseries);
+        
+        ser.addEventListener("changed", redraw);
+        ser.addEventListener("titlechanged", titlechange);
+        // setting.addEventListener("changed", redraw);
+        ser.addEventListener("expired", expire);
+        sers[ser.index] = true;
+        
+        var span = document.createElement("span");
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        if(!activesers) {
+            cb.checked = true;
+            activesers = [ser.index];
+        }
+        var cbid = cb.id = "hist_vser"+ ser.index;
+        span.appendChild(cb);
+        var label = document.createElement("label");
+        label.setAttribute("for", cb.id);
+        label.textContent = ser.title;
+        label.style.backgroundColor = seriescolor(ser.index, cb.checked);
+        span.appendChild(label);
+        sersw.appendChild(span);
+        //sersw.appendChild(document.createTextNode(" "));
+    } else {
+        var cb = document.getElementById("hist_vser"+ ser.index);
+        var label = cb.nextElementSibling;
+        label.textContent = ser.title;
+    }
+
+	if(!curset || !(curset.tick==tick && curset.min==min && curset.len==len && curset.cmax == cmax && curset.type == type)) {
+        initchartY(svg, cw, ch, cmax);
+        curset = {tick:tick, min:min, len:len, cmax:cmax};
+        if(type) curset.type = type;
+        //console.log(curset)
+        xf.save("hist_set", curset);
+        outls = {};
+        outrs = {};
+        
+        var labelg = svg.querySelector('.label');
+        var end = -cmargin;
+        for(i=0; i<=len; i++) {
+            var j = min + tick*i;
+            var lx = cmargin + bw*i;
+            if(end+5 < lx) {
+                end = makelabel(labelg, lx, 5, j.toFixed(pdig), "middle", 2).xend;
+            }
+        }
+    }
+    
+    var g = svg.querySelector('.series[data-index="'+ ser.index +'"]');
+    if(g) {
+        clearsvg(g, "*");
+        g.removeAttribute("stroke");
+    } else {
+        g = document.createElementNS(svgns, "g");
+        g.className.baseVal = "series";
+        g.setAttribute("data-index", ser.index);
+        svg.appendChild(g);
+        if(!cb.checked) g.style.display = "none";
+    }
+    var color = seriescolor(ser.index, true);
+    
+    var cbody = cw - cmargin*2;
+    var bars = new Array(len);
+    var bh = ch/svg.max;
+    var outl=0, outr=0;
+
+    //console.log(type)
+switch(type) {
+    case "polygon":
+        g.setAttribute("stroke", color);
+		bars.fill(0);
+		var x = items[0];
+		var minj = Math.floor((x*k - min*k)/(tick*k));
+        for(i=0; i<items.length; i++) {
+            var x = items[i];
+            var j = Math.floor((x*k - min*k)/(tick*k));
+            if(j<0) { outl++; continue; }
+            if(len-1<j) { outr++; continue; }
+		    ++bars[j];
+		}
+		var maxj = j;
+		var bx = cmargin + bw*(minj-0.5), by = 0;
+		var pre = {x: bx, y: 0};
+		for(j=minj; j<=maxj; j++) {
+			var bx = cmargin + bw*(j+0.5), by = bh*bars[j];
+			makeline(g, pre.x, pre.y, bx, -by, "fdp");
+			pre = {x: bx, y: -by};
+		}
+		makeline(g, pre.x, pre.y, bx+bw, 0, "fdp");
+        break;
+    default:
+        var bar;
+        for(i=0; i<items.length; i++) {
+            var x = items[i];
+            var j = Math.floor((x*k - min*k)/(tick*k));
+            if(j<0) { outl++; continue; }
+            if(len-1<j) { outr++; continue; }
+            
+            if(!bars[j]) {
+                if(bar) {
+                    makeline(bar, bx, -by, bx+bw, -by);
+                }
+                bars[j] = [];
+                bar = document.createElementNS(svgns, "g");
+                bar.className.baseVal = "hbar";
+                g.appendChild(bar);
+                var bx = cmargin + bw*j;
+                makeline(bar, bx, 0, bx+bw, 0);
+            }
+            var c = bars[j].length + 1;
+            //if(cmax<c) { return drawhist(ser, tick, min, len, c); }
+            var bx = cmargin + bw*j, by = bh*c;
+            var rect = makerect(bar, bx, -by, bw, bh, color);
+            rect.setAttribute("fill-opacity", 0.5);
+            bars[j].push(rect);
+            /**/var lx = cmargin + cbody*(x-min)/(max-min);
+            var l = makeline(bar, lx, -by, lx, -by+bh);
+            l.className.baseVal = "frac";/**/
+            makeline(bar, bx+bw, -by, bx+bw, -by+bh);
+            makeline(bar, bx, -by, bx, -by+bh);
+        }
+        if(bar) {
+            makeline(bar, bx, -by, bx+bw, -by);
+        }
+}
+    
+    if(!labelg) labelg = svg.querySelector('.label');
+    
+    outls[ser.index] = outl;
+    outrs[ser.index] = outr;
+    if(outl) {
+        var l = labelg.querySelector('.outl');
+        if(!l) {
+            makelabel(labelg, bw, -23, "範囲外", "end", 0, "outlier");
+            l = makelabel(labelg, bw+5, -5, "", "end", 0, "outl");
+        }
+        var n = 0;
+        for(var i in outls) { n += outls[i] }
+        l.textContent = n +"←";
+    }
+    if(outr) {
+        var l = labelg.querySelector('.outr');
+        if(!l) {
+            makelabel(labelg, cw-bw, -23, "範囲外", "start", 0, "outlier");
+            var l = makelabel(labelg, cw-bw-5, -5, "0", "start", 0, "outr");
+        }
+        var n = 0;
+        for(var i in outrs) { n += outrs[i] }
+        l.textContent = "→"+ n;
+    }
+    
+    btnMulti.nextElementSibling.style.display = Series.list.length==1? "none" : "";
+}
+function redraw(ev) {
+    var set = {
+        min: parseFloat(document.getElementById("dmin").value),
+        //max: parseFloat(document.getElementById("dmax").value),
+        len: parseFloat(document.getElementById("dlen").value),
+        tick: parseFloat(document.getElementById("dtick").value)};
+    
+    if(isNaN(set.min) || isNaN(set.len) || isNaN(set.tick)) {
+        var a = Series.list.reduce(function(p,v){ return p.concat(v.getValues()) }, []);
+        set = completesetting(a);/**/
+    }
+    var min = set.min, len = set.len, tick = set.tick;
+	var d = Series.list.reduce(function(p,v){ return Math.max(p,v.d)}, 0);
+
+    //var len = Math.ceil((max-min)/tick);
+    var cmax = 0;
+    for(i=0; i<Series.list.length; i++) {
+        var data = Series.list[i].getValues();
+        var result = countup(data, min, tick, len, d);
+        cmax = Math.max(cmax, Math.max.apply(this, result.arr));
+    }
+    
+    if(ev.target!=Series && curset.tick==tick && curset.min==min && curset.len==len && curset.cmax == cmax) {
+        drawhistfor(ev.target, tick, min, len, cmax, curset.type);
+    } else {
+        drawhist(tick, min, len, cmax, curset.type);
+    }
+}
+function shapechange(ev) {
+    var type = ev.target.checked? "polygon" : "histgram";
+    drawhist(curset.tick, curset.min, curset.len, curset.max, type);
+    curset.type = type;
+}
+function titlechange(ev) {
+    var ser = ev.target;
+    var sersw = document.getElementById('hist_vser'+ ser.index);
+    sersw.nextElementSibling.textContent = ser.title;
+}
+function addseries(ev) {
+    if(curset) {
+        drawhistfor(ev.value, curset.tick, curset.min, curset.len, curset.cmax);
+    } else {
+        //drawhist();
+    }
+}
+function reset() {
+    sersw.removeEventListener("change", switchser);
+    btnMulti.removeEventListener("change", multser);
+}
+function expire(ev) {
+    var ser = ev.target;
+    ser.removeEventListener("changed", redraw);
+    ser.removeEventListener("titlechanged", titlechange);
+    ser.removeEventListener("expired", expire);
+    
+    delete sers[ser.index];
+    var ai = activesers.indexOf(ser.index);//console.log(activesers, ser.index);
+    if(ai>=0) activesers.splice(ai, 1); console.log(ai)
+
+    var g = svg.querySelector('.series[data-index="'+ ser.index +'"]');
+    if(g) g.parentNode.removeChild(g);
+
+    var sersw = document.getElementById('hist_vser'+ ser.index);
+    if(sersw) {
+        sersw.parentNode.removeChild(sersw.nextElementSibling);//label
+        sersw.parentNode.removeChild(sersw);//checkbox
+    }
+}
+function gtitlechange(ev) {
+    svg.querySelector(".title").textContent = Series.title;
+}
+    
+    var activesers;
+function switchser(ev) {
+    var mul = btnMulti.checked;
+    
+    if(!mul && activesers.length>0) {
+        var index = activesers.shift();
+        var target = document.getElementById("hist_vser"+ index);
+        target.checked = false;
+        target.nextElementSibling.style.backgroundColor = seriescolor(index);
+        var g = svg.querySelector('[data-index="'+ index +'"]');
+        g.style.display = "none";
+    }
+    
+    var target = ev.target;
+    var index = parseInt(target.id.replace("hist_vser",""));
+    var g = svg.querySelector('[data-index="'+ index +'"]');
+    g.style.display = target.checked ? "" : "none";
+    target.nextElementSibling.style.backgroundColor = seriescolor(index, target.checked);
+    
+    if(target.checked) {
+        activesers.push(index);
+    } else {
+        activesers.splice(activesers.indexOf(index),1);
+    }
+    
+    xf.save("hist_vsers", activesers);
+}
+function multser(ev) {
+    if(!ev.target.checked) {
+        while(activesers.length>1) {
+            var index = activesers.shift();
+            var target = document.getElementById("hist_vser"+ index);
+            target.checked = false;
+            var g = svg.querySelector('[data-index="'+ index +'"]');
+            g.style.display = "none";
+            target.nextElementSibling.style.backgroundColor = seriescolor(index);
+        }
+        xf.save("hist_vsers", activesers);
+        xf.remove("hist_multi");
+    } else {
+        xf.save("hist_multi", 1);
+    }
+}
+
+}
+]]></script>
+<script><![CDATA[//step-boxp.js 21.0111
+//statlook step-boxp 2012 (c) 2017, 2020 aokih@icu.ac.jp
+
+// 箱ひげ図
+function BoxplotPanel() {
+    //public
+    this.drawbox = drawbox;
+    this.restore = restore;
+
+    Series.addEventListener("appended", addseries);
+    Series.addEventListener("reset", reset);
+    var self = this;
+    var svg = document.getElementById("boxplot");
+    this.dom = regstep(svg);
+    addpanel("bpanel");
+    navigate(GUIDE_BOXPLOTPANEL, this);
+    
+    var sersw = this.dom.querySelector('.serswitch');
+    sersw.addEventListener("change", switchser)
+    
+function drawbox() {
+    var i;
+    
+    var a = Series.list.reduce(function(p,ser){return p.concat(ser.getValues()) },[]);
+    var mm = minmax(a);
+    var n = Series.list.length;
+    
+    for(i=0; i<Series.list.length; i++) {
+        drawboxfor(Series.list[i], mm.min, mm.max, n);
+    }
+}
+function restore() {
+    drawbox();
+    
+    var vsers = xf.load("boxp_vsers");
+    if(vsers) {
+        while(activesers.length>0) {
+            var index = activesers.shift();
+            var target = document.getElementById('boxp_vser'+ index);
+            target.checked = false;
+            target.nextElementSibling.style.backgroundColor = seriescolor(index);
+            var g = svg.querySelector('[data-index="'+ index +'"]');
+            g.style.display = "none";
+        }
+        for(var i=0; i<vsers.length; i++) {
+            var index = vsers[i];
+            var target = document.getElementById('boxp_vser'+ index);
+            target.checked = true;
+            target.nextElementSibling.style.backgroundColor = seriescolor(index, true);
+            var g = svg.querySelector('[data-index="'+ index +'"]');
+            g.style.display = "";
+        }
+        activesers = vsers;
+    }
+}
+    
+    var curset, sers = {};
+function drawboxfor(ser, min, max, n) {
+    var i, j;
+
+    //qselect.style.display = "block";
+    
+    if(!sers[ser.index]) {
+        Series.addEventListener("titlechanged", gtitlechange);
+        gtitlechange();
+        
+        ser.addEventListener("changed", redraw);
+        ser.addEventListener("titlechanged", titlechange);
+        qselect.addEventListener("change", drawbox);
+        ser.addEventListener("expired", expire);
+        sers[ser.index] = true;
+        
+        var span = document.createElement("span");
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = true;
+        activesers.push(ser.index);
+        var cbid = cb.id = "boxp_vser"+ ser.index;
+        span.appendChild(cb);
+        var label = document.createElement("label");
+        label.setAttribute("for", cb.id);
+        label.textContent = ser.title;
+        label.style.backgroundColor = seriescolor(ser.index, cb.checked);
+        span.appendChild(label);
+        sersw.appendChild(span);
+    } else {
+        var cb = document.getElementById("boxp_vser"+ ser.index);
+        var label = cb.nextElementSibling;
+        label.textContent = ser.title;
+    }
+
+    var cw = 400, ch = 400;
+    
+    var ltick = getTick(max-min);
+    var cmin = Math.floor(min/ltick)*ltick;
+    var cmax = Math.ceil(max/ltick)*ltick;
+    var long = cmax-cmin;
+    var kx = cw/long;
+    
+    var nn = Math.max(5,n);
+    var offj = (nn-n)/2;
+    var seriesw = ch/nn;
+    var boxw = seriesw*0.7;
+    
+    if(!curset || !(curset.min==min && curset.max==max && curset.n==n)) {
+        clearsvg(svg);
+        curset = {min:min, max:max, n:n};
+        
+        var y = -seriesw * offj;
+        
+        var axis = svg.querySelector('.axis');
+        if(!axis) {
+            axis = document.createElementNS(svgns, "g");
+            axis.className.baseVal = "axis";
+            svg.appendChild(axis);
+            
+            makeline(axis, 0, y, cw, y);
+        }
+        
+        var labelg = svg.querySelector('.label');
+        if(!labelg) {
+            labelg = document.createElementNS(svgns, "g");
+            labelg.className.baseVal = "label";
+            svg.appendChild(labelg);
+            
+            var end = -cw;
+            for(i=cmin; i<max+ltick; i+=ltick) {
+                var x = kx*(i - cmin);
+                makeline(axis, x, y, x, y-5);
+                if(end+5 < x) {
+                    end = makelabel(labelg, x, y, i, "middle", 2).xend;
+                }
+            }
+        }
+        
+    }
+    var g = svg.querySelector('.series[data-index="'+ ser.index +'"]');
+    if(g) {
+        clearsvg(g, "*");
+    } else {
+        g = document.createElementNS(svgns, "g");
+        g.className.baseVal = "series box";
+        g.setAttribute("data-index", ser.index);
+        svg.appendChild(g);
+    }
+
+    var type = qselect.querySelector('input:checked').value;
+    var q = getquartiles(ser.getValues(), type);
+
+    var color = seriescolor(ser.index);
+    
+    j = Series.list.indexOf(ser) + offj;
+    
+    var y = seriesw*j + boxw/2;
+    makelabel(g, -50, -ch + y, ser.title, "middle", 1);
+    
+    for(i=1; i<=2; i++) {
+        var x = kx*(q[(i-1)*4] - cmin), x1 = kx*(q[i*2-1] - cmin), x2 = kx*(q[i] - cmin);
+        var h = kx*(q[i+1] - q[i]);
+        //console.log([x,x1,x2,h])
+        makeline(g, x, -ch + y - boxw/2, x, -ch + y + boxw/2);
+        makeline(g, x, -ch + y, x1, -ch + y);
+        makerect(g, x2, -ch + y -boxw/2, h, boxw, color);
+    }
+    
+}
+    
+function redraw(ev) {
+    var ser = ev.target;
+    
+    var a = Series.list.reduce(function(p,ser){return p.concat(ser.getValues()) },[]);
+    var mm = minmax(a);
+    var n = Series.list.length;
+    
+    if(curset.min==mm.min && curset.max==mm.max && curset.n==n) {
+        drawboxfor(ser, curset.min, curset.max, curset.n);
+    } else {
+        drawbox();
+    }
+}
+function titlechange(ev) {
+    var ser = ev.target;
+    var titlee = svg.querySelector('g[data-index="'+ ser.index +'"] text');
+    titlee.textContent = ser.title;
+    
+    var sersw = document.getElementById('boxp_vser'+ ser.index);
+    sersw.nextElementSibling.textContent = ser.title;
+}
+    
+function addseries(ev) {
+    drawbox();
+}
+function reset(ev) {
+    qselect.removeEventListener("change", drawbox);
+}
+function expire(ev) {
+    var ser = ev.target;
+    ser.removeEventListener("changed", redraw);
+    ser.removeEventListener("titlechanged", titlechange);
+    ser.removeEventListener("expired", expire);
+    
+    var g = svg.querySelector('.series[data-index="'+ ser.index +'"]');
+    if(g) {
+        g.parentNode.removeChild(g);
+    }
+    
+    var sersw = document.getElementById('boxp_vser'+ ser.index);
+    if(sersw) {
+        sersw.parentNode.removeChild(sersw.nextElementSibling);//label
+        sersw.parentNode.removeChild(sersw);//checkbox
+    }
+
+    delete sers[ser.index];
+    drawbox();
+}
+
+function gtitlechange(ev) {
+    svg.querySelector(".title").textContent = Series.title;
+}
+
+    var activesers = [];
+function switchser(ev) {
+    
+    var target = ev.target;
+    var index = parseInt(target.id.replace("boxp_vser",""));
+    var g = svg.querySelector('[data-index="'+ index +'"]');
+    g.style.display = target.checked ? "" : "none";
+    target.nextElementSibling.style.backgroundColor = seriescolor(index, target.checked);
+    
+    if(target.checked) {
+        activesers.push(index);
+    } else {
+        activesers.splice(activesers.indexOf(index),1);
+    }
+    
+    xf.save("boxp_vsers", activesers);
+}
+    
+}
+]]></script>
+
+</head>
+<body>
+<div id="base">
+<div id="top">
+	<h1>statlook<span></span></h1><script>document.currentScript.previousElementSibling.title="version "+appversion</script>
+  <div id="stepbar">
+    <span class="toggle omitone"></span>
+    <span class="toggle rightbar"><input type="button" id="reset"/><label for="reset">リセット</label><input type="file" id="resume"/><label for="resume">再開</label><input type="button" id="save"/><label for="save">保存</label></span>
+  </div>
+</div>
+<div id="stage">
+
+<div class="panel" id="panel0">
+    <h2>資料</h2>
+<div>
+    タイトル：<input id="title" type="text" style="width:20em" placeholder="全体のタイトル"/>
+</div>
+<ul id="serlist" class="toggle">
+  <li><input type="checkbox" id="selser1"/><label for="selser1" style="background-color:hsl(200,100%,91%)">系列</label> <input type="text" style="width:10em" placeholder="系列名"/><input type="button" value="−"/></li>
+</ul><input type="button" id="addser" value="＋"/>
+<table class="vtable" id="dtable">
+</table>
+
+    <div>入力：<span style="display:inline-block;vertical-align:top;">
+    <textarea id="dinput" cols="33" placeholder="データを入力"></textarea></span></div>
+
+    <ul style="margin:0;font-size:80%;font-family:sans-serif">
+    <li><input id="cbpaste" type="button" value="貼り付け"/> - Webサイトや表計算ソフトからコピーしたデータ</li>
+    <li><input id="datafileload" type="file" value="ファイルを開く"/> - CSV, 空白/タブ区切りファイル</li>
+    <li><label><input id="forcecsv" type="checkbox"/> コンマ（,）を値区切りに指定</label></li>
+    </ul>
+    <div style="display:inline-block; font-size:0.75em;background-color:#eeeeee;
+        border-radius:0.2em;margin:0.5em;padding:0.5em;">
+        <span style="font-size:0.9em;font-family:sans-serif;color:#8888ff;">ヒント</span>
+        統計局 <a href="http://www.stat.go.jp/naruhodo/c1s1.htm" target="data">なるほど統計学園</a>
+        からデータをコピー・貼り付けできます。
+    </div>
+
+<div id="op1" class="op">
+    <!--button id="makebar">グラフにする</button-->
+    <!--button id="makestable">概要を抽出する</button-->
+    <!--button id="makedist">度数分布表・ヒストグラムを作る</button-->
+</div>
+</div>
+
+  <div class="panel fig">
+    <h2>概要</h2>
+    <svg xmlns="http://www.w3.org/2000/svg" id="barchart" width="700" height="700" viewBox="-90 -450 500 500">
+    <defs>
+      <marker id="bar_divarh" viewBox="-5 -5 10 10" markerUnits="strokeWidth" markerWidth="20" markerHeight="20" orient="auto">
+        <path d="M-5,-3 L0,0 L-5,3"/>
+      </marker>
+      <marker id="bar_divare" viewBox="-5 -5 10 10" markerUnits="strokeWidth" markerWidth="20" markerHeight="20" orient="auto">
+        <path d="M5,-3 L0,0 L5,3"/>
+      </marker>
+    </defs>
+    <text class="title" x="200" y="-420" text-anchor="middle">title</text>
+	<text class="ytitle" x="0" y="-420" text-anchor="end">ytitle</text>
+    </svg>
+    <button id="makestable">統計量を求める</button>
+    <button id="dividef" style="display:none">度数分布</button>
+    <button id="previewhist" style="display:none">ヒストグラムにする</button>
+<!--<br/>-->
+    <button id="sortbar">小さい順に並べる</button>
+    <span id="divpreview" style="display:none">大きさ順で分割 <button id="divide2">2分割</button>
+    <button id="divide4">4分割</button></span>
+    <button id="previewbox" style="display:none">箱ひげ図にする</button>
+</div>
+
+<div class="panel">
+  <h2>統計量</h2>
+  <div>
+    <table class="vtable" id="stable">
+	<caption></caption>
+    <tr><th></th></tr>
+    <tr data-type="count" data-required=""><th>個数</th></tr>
+    <tr data-type="min" data-required=""><th>最小値</th></tr>
+    <tr data-type="max" data-required=""><th>最大値</th></tr>
+    <tr data-type="sum"><th>合計</th></tr>
+    <tr data-type="ave"><th>平均値</th></tr>
+    <tr data-type="median"><th>中央値</th></tr>
+    <!--<tr data-type="mode"><th>最頻値</th></tr>-->
+    </table>
+    <button id="reqallsummary">すべて求める</button><br/>
+    <button id="makeftable">度数分布表を作る</button>
+    <button id="makeqtable">四分位数の表を作る</button>
+</div>
+</div>
+
+<div class="panel">
+  <h2>度数分布表</h2>
+  <div class="csetting">
+    <div style="display:inline-block">
+    階級に含む値<input id="dmin" type="text" style="width:3em"/><span class="spin"><button>▲</button><button>▼</button></span>〜<input id="dmax" type="text" style="width:3em"/><span class="spin"><button>▲</button><button>▼</button></span>
+    階級幅<input id="dtick" type="text" style="width:2em;"/><span class="spin"><button>▲</button><button>▼</button></span>
+    階級数 <input id="dlen" type="text" style="width:1.5em;border:none;"/><span class="spin"><button>▲</button><button>▼</button></span>
+    </div>
+    <button id="renewftable" style="display:none">更新</button>
+    <button id="wholerange" style="display:none">すべてを含む</button>
+</div>
+<div id="fdiv">
+    <table class="vtable" id="ftable">
+    <caption>度数分布表</caption>
+    <thead>
+    <tr><th></th><th colspan="4">系列1</th></tr>
+    <tr><th>階級<br/>(以上〜未満)</th><th data-index="1">度数</th><th>累積度数</th><th>相対度数</th><th>累積相対度数</th></tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot><tr><th>計</th></tr></tfoot>
+  </table>
+</div>
+  <button id="makehist">ヒストグラムを作る</button>
+</div>
+
+  <div class="panel fig">
+    <h2>ヒストグラム</h2>
+    <svg xmlns="http://www.w3.org/2000/svg" id="histchart" width="700" height="700" viewBox="-75 -450 500 500">
+      <text class="title" x="200" y="-420" text-anchor="middle">title</text>
+    </svg>
+    <div class="serswitch toggle" style="display:inline">表示：</div>
+    <span class="toggle"><input type="checkbox" id="hist_multi"/><label for="hist_multi" style="border-radius:0">複数</label></span>
+    <div style="display:none"><input type="checkbox" id="hist_showaverage"/><label for="hist_showaverage">平均値を表示</label></div>
+    <div>
+        <input type="checkbox" id="hist_polygon"/><label for="hist_polygon">度数分布多角形</label>
+        <!--input type="checkbox" id="hist_polygon_r"/><label for="hist_polygon_r">相対度数グラフ</label-->
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>四分位数</h2>
+    <table class="vtable" id="qtable">
+    <caption>５数要約</caption>
+    <tr><th></th></tr>
+    <tr data-type="min" data-required=""><th>最小値</th></tr>
+    <tr data-type="q1" data-required=""><th>第1四分位数<!--Q<sub>1</sub>--></th></tr>
+    <tr data-type="median" data-required=""><th>中央値</th></tr>
+    <tr data-type="q3" data-required=""><th>第3四分位数<!--Q<sub>3</sub>--></th></tr>
+    <tr data-type="max" data-required=""><th>最大値</th></tr>
+    <tr data-type="qrange" class="brow"><th>四分位範囲</th></tr>
+    <tr data-type="qdev"><th>四分位偏差</th></tr>
+</table>
+<ul style="border:solid 1px none; margin: 0.5em 0; font-size: 0.9em">
+<li>四分位範囲＝第３四分位数－第１四分位数</li>
+<li>四分位偏差＝四分位範囲÷２</li>
+</ul>
+<button id="reqallq">すべて求める</button>
+<button id="makebox">箱ひげ図を作る</button>
+  </div>
+
+  <div class="panel fig">
+    <h2>箱ひげ図</h2>
+    <svg xmlns="http://www.w3.org/2000/svg" id="boxplot" width="700" height="700" viewBox="-90 -440 500 500">
+      <text class="title" x="200" y="-420" text-anchor="middle">title</text>
+    </svg>
+    <div class="serswitch toggle" style="display:inline">表示：</div>
+    <div style="display:none"><input type="checkbox" id="boxp_showaverage"/><label for="boxp_showaverage">平均値を表示</label></div>
+    <div style="display:none"><input type="checkbox" id="boxp_vertical"/><label for="boxp_vertical">縦形式</label></div>
+  </div>
+
+</div>
+<div id="bottom">
+    <img style="width:2em;height:2em;vertical-align:bottom;margin-left:1em;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFUAAABVCAYAAAA49ahaAAAAAXNSR0IArs4c6QAAAIBlWElmTU0AKgAAAAgAAwESAAMAAAABAAEAAAExAAIAAAAkAAAAModpAAQAAAABAAAAVgAAAABBZG9iZSBQaG90b3Nob3AgQ0MgMjAxNCAoTWFjaW50b3NoKQAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAVaADAAQAAAABAAAAVQAAAAAV5fvnAAAEF2lUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS40LjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIKICAgICAgICAgICAgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiCiAgICAgICAgICAgIHhtbG5zOnRpZmY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vdGlmZi8xLjAvIgogICAgICAgICAgICB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iPgogICAgICAgICA8eG1wTU06SW5zdGFuY2VJRD54bXAuaWlkOjg5QkI2RDkzODUyMjExRTRCQUIyOTk4MzU0MkI1NDlCPC94bXBNTTpJbnN0YW5jZUlEPgogICAgICAgICA8eG1wTU06RGVyaXZlZEZyb20gcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICA8c3RSZWY6aW5zdGFuY2VJRD54bXAuaWlkOjA3MUM0OEZDODUyMjExRTRCQUIyOTk4MzU0MkI1NDlCPC9zdFJlZjppbnN0YW5jZUlEPgogICAgICAgICAgICA8c3RSZWY6ZG9jdW1lbnRJRD54bXAuZGlkOjg5QkI2RDky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"/>
+    <div class="navigation" id="navigation">操作ガイドがここに表示されます。ダウンロードしたばかりのStatlookは展開してからご使用ください<br/></div>
+
+<div id="qselect">四分位数の求め方
+<ul style="display:inline-block;vertical-align:middle;margin:0;">
+<li><label><input type="radio" name="qmethod" checked="" value="moor_mccabe"/>教科書の方法</label></li>
+<li><label><input type="radio" name="qmethod" value="tukey"/>テューキーのヒンジ</label></li>
+<li><label><input type="radio" name="qmethod" value="interpolate"/>表計算ソフトの方法</label></li>
+</ul>
+</div>
+
+</div>
+</div>
+</body>
+</html>
